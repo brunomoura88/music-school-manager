@@ -18,34 +18,20 @@ def obter_conexao():
         import psycopg
         from psycopg.rows import dict_row
         
-        # Corrige o link caso o Render exija o prefixo correto
+        # Remove qualquer quebra de linha ou espaço que venha da variável do Render
+        url_banco = url_banco.strip()
+        
         if url_banco.startswith("postgres://"):
             url_banco = url_banco.replace("postgres://", "postgresql://", 1)
             
-        # Conecta de forma limpa e direta usando o dict_row nativo do Postgres
-        conn = psycopg.connect(url_banco, row_factory=dict_row)
-        return conn
+        # Conecta de forma limpa e direta
+        return psycopg.connect(url_banco, row_factory=dict_row)
     else:
-        # Se estiver no teu computador, usa o teu SQLite local de sempre
+        # Se estiver no seu computador, usa o seu SQLite local de sempre
         import sqlite3
         conn = sqlite3.connect('estudio_a.db')
         conn.row_factory = sqlite3.Row
-        return conn
-app = Flask(__name__)
-
-# CHAVE SECRETA: O Flask precisa disso para criptografar os carimbos (cookies) das sessões.
-# Pode colocar qualquer frase secreta aqui.
-app.secret_key = 'estudio_a_chave_ultra_secreta_freelancer'
-
-
-
-# ===========================================
-# FUNÇÃO PARA CRIAR O BANCO E AS TABELAS
-# ===========================================
-def init_db():
-    conn = obter_conexao()
-    cursor = conn.cursor()
-    
+        return conn    
     # Verifica se estamos usando PostgreSQL (psycopg2) ou SQLite
     is_postgres = hasattr(conn, 'encoding') or conn.__class__.__name__ == 'connection'
     
