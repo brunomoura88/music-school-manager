@@ -17,11 +17,11 @@ def obter_conexao():
     if url_banco:
         # Se estiver na nuvem, usamos um conector inteligente do PostgreSQL
         try:
-            import psycopg2
-            from psycopg2.extras import DictCursor
+            import psycopg
+            from psycopg.rows import dict_row
         except ImportError as e:
             raise ImportError(
-                "O pacote psycopg2 não está instalado. Instale 'psycopg2-binary' "
+                "O pacote psycopg não está instalado. Instale 'psycopg[binary]' "
                 "no seu ambiente virtual e tente novamente."
             ) from e
         
@@ -29,7 +29,7 @@ def obter_conexao():
         if url_banco.startswith("postgres://"):
             url_banco = url_banco.replace("postgres://", "postgresql://", 1)
             
-        conn = psycopg2.connect(url_banco, cursor_factory=DictCursor)
+        conn = psycopg.connect(url_banco, row_factory=dict_row)
         original_cursor = conn.cursor
 
         def patched_cursor(*args, **kwargs):
