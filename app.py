@@ -263,6 +263,15 @@ def aplicar_migracoes():
     cursor.close()
     conn.close()
 
+@app.before_first_request
+def inicializar_banco():
+    try:
+        init_db()
+        aplicar_migracoes()
+        popular_dados_iniciais()
+    except Exception as e:
+        print('Aviso de inicialização do banco:', e)
+
 # ==========================================
 # ROTAS DO SISTEMA
 # ==========================================
