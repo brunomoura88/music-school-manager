@@ -263,10 +263,6 @@ def aplicar_migracoes():
     cursor.close()
     conn.close()
 
-# Execuções automáticas de checagem de dados e migrações
-aplicar_migracoes()
-popular_dados_iniciais()
-
 # ==========================================
 # ROTAS DO SISTEMA
 # ==========================================
