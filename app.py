@@ -88,8 +88,24 @@ def init_db():
             senha {text_type}
         );
     ''')
+
+    # 2. Tabela de Disciplinas
+    cursor.execute(f'''
+        CREATE TABLE IF NOT EXISTS disciplinas (
+            id {id_auto},
+            nome {text_type} UNIQUE NOT NULL
+        );
+    ''')
+
+    # 3. Tabela de Salas
+    cursor.execute(f'''
+        CREATE TABLE IF NOT EXISTS salas (
+            id {id_auto},
+            nome {text_type} UNIQUE NOT NULL
+        );
+    ''')
     
-    # 2. Tabela de Alunos (Aqui onde dava o erro!)
+    # 4. Tabela de Alunos
     cursor.execute(f'''
         CREATE TABLE IF NOT EXISTS alunos (
             id {id_auto},
@@ -99,21 +115,29 @@ def init_db():
             instrumento {text_type},
             dia_aula {text_type},
             horario_aula {text_type},
+            id_disciplina INTEGER REFERENCES disciplinas(id),
+            id_professor INTEGER REFERENCES professores(id),
             valor_mensalidade REAL,
-            vencimento_original {text_type}
+            vencimento_mensalidade {text_type},
+            dia_vencimento INTEGER,
+            dia_semana {text_type},
+            cpf_rg {text_type},
+            endereco {text_type},
+            pago INTEGER DEFAULT 0
         );
     ''')
     
-    # 3. Tabela de Agenda
+    # 5. Tabela de Agenda
     cursor.execute(f'''
         CREATE TABLE IF NOT EXISTS agenda (
             id {id_auto},
+            id_sala INTEGER,
+            id_professor INTEGER,
+            id_aluno INTEGER,
             dia_semana {text_type} NOT NULL,
             horario {text_type} NOT NULL,
-            aluno_id INTEGER,
             tipo_aula {text_type} DEFAULT 'Regular',
-            data_recuperacao {text_type},
-            professor_id INTEGER
+            data_aula {text_type}
         );
     ''')
     
@@ -202,11 +226,47 @@ def aplicar_migracoes():
     except Exception:
         pass
     try:
+        cursor.execute("ALTER TABLE alunos ADD COLUMN id_disciplina INTEGER;")
+    except Exception:
+        pass
+    try:
+        cursor.execute("ALTER TABLE alunos ADD COLUMN id_professor INTEGER;")
+    except Exception:
+        pass
+    try:
+        cursor.execute("ALTER TABLE alunos ADD COLUMN vencimento_mensalidade TEXT;")
+    except Exception:
+        pass
+    try:
+        cursor.execute("ALTER TABLE agenda ADD COLUMN id_sala INTEGER;")
+    except Exception:
+        pass
+    try:
+        cursor.execute("ALTER TABLE agenda ADD COLUMN id_professor INTEGER;")
+    except Exception:
+        pass
+    try:
+        cursor.execute("UPDATE agenda SET id_professor = professor_id WHERE id_professor IS NULL AND professor_id IS NOT NULL;")
+    except Exception:
+        pass
+    try:
+        cursor.execute("ALTER TABLE agenda ADD COLUMN id_aluno INTEGER;")
+    except Exception:
+        pass
+    try:
+        cursor.execute("UPDATE agenda SET id_aluno = aluno_id WHERE id_aluno IS NULL AND aluno_id IS NOT NULL;")
+    except Exception:
+        pass
+    try:
         cursor.execute("ALTER TABLE agenda ADD COLUMN tipo_aula TEXT DEFAULT 'Fixa';")
     except Exception:
         pass
     try:
         cursor.execute("ALTER TABLE agenda ADD COLUMN data_aula TEXT;")
+    except Exception:
+        pass
+    try:
+        cursor.execute("UPDATE agenda SET data_aula = data_recuperacao WHERE data_aula IS NULL AND data_recuperacao IS NOT NULL;")
     except Exception:
         pass
     is_postgres = not is_sqlite_conn(conn)
@@ -374,9 +434,9 @@ def alunos():
 
         # Trocamos todos os '?' por '%s' para funcionar no PostgreSQL
         cursor.execute('''
-            INSERT INTO alunos (nome, cpf, telefone, instrumento, dia_aula, horario_aula, valor_mensalidade, vencimento_original)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
-        ''', (nome, cpf, telefone, instrumento, dia_aula, horario_aula, valor_mensalidade, vencimento_original))
+            INSERT INTO alunos (nome, cpf, telefone, instrumento, dia_aula, horario_aula, id_disciplina, id_professor, valor_mensalidade, vencimento_mensalidade, dia_vencimento, dia_semana, cpf_rg, endereco)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+        ''', (nome, cpf, telefone, instrumento, dia_aula, horario_aula, id_disciplina, id_professor_vinc, valor_mensalidade, dia_vencimento, dia_vencimento, dia_semana, cpf_rg, endereco))
         
         conn.commit()
         conn.close() # Lembra-te de fechar a conexão antes do redirect
