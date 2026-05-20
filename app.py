@@ -45,92 +45,71 @@ app.secret_key = 'estudio_a_chave_ultra_secreta_freelancer'
 # FUNÇÃO PARA CRIAR O BANCO E AS TABELAS
 # ===========================================
 def init_db():
-    # Conecta o arquivo do banco ( se não exixtir, o Python cria)
     conn = obter_conexao()
     cursor = conn.cursor()
-
-    # Ativa o suporte a Chaves estrangeiras no Sqlite
-    cursor.execute("PRAGMA foreign_keys = ON;")
-
-    # 1. Tabela de Disciplinas
-    cursor.execute('''
-        CREATE TABLE IF NOT EXISTS disciplinas (
-                   id INTEGER PRIMARY KEY AUTOINCREMENT,
-                   nome TEXT NOT NULL UNIQUE
-                   )
-            ''')
     
-    # 2. Tabela de Professores
-    cursor.execute('''
-                   CREATE TABLE IF NOT EXISTS professores(
-                        id INTEGER PRIMARY KEY AUTOINCREMENT,
-                        nome TEXT NOT NULL UNIQUE,
-                        cpf TEXT NOT NULL UNIQUE,
-                        endereco TEXT,
-                        login TEXT UNIQUE,
-                        senha TEXT
-                   )
-            ''')   
+    # Verifica se estamos usando PostgreSQL (psycopg2) ou SQLite
+    is_postgres = hasattr(conn, 'encoding') or conn.__class__.__name__ == 'connection'
     
-    # 3. Tabela de Salas
-    cursor.execute('''
-            CREATE TABLE IF NOT EXISTS salas(
-                   id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    nome TEXT NOT NULL UNIQUE
-                   )
-            ''')
-    # 4. Tabela de alunos (Relaciona com professores e disciplina)
-    cursor.execute('''
-            CREATE TABLE IF NOT EXISTS alunos (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        nome TEXT NOT NULL,
-        cpf_rg TEXT,
-        endereco TEXT,
-        dia_vencimento INTEGER,
-        vencimento_mensalidade INTEGER NOT NULL,
-        valor_mensalidade REAL DEFAULT 220.00,
-        pago INTEGER DEFAULT 0,
-        id_professor INTEGER,
-        id_disciplina INTEGER,
-        dia_semana TEXT,
-        FOREIGN KEY (id_professor) REFERENCES professores(id),
-        FOREIGN KEY (id_disciplina) REFERENCES disciplinas(id)
-    )
-            ''')
-    # 5. Tabela da agenda de aulas (controla horario das salas por disciplina)
-    cursor.execute('''
+    # Define os tipos de autoincremento para cada banco
+    id_auto = "SERIAL PRIMARY KEY" if is_postgres else "INTEGER PRIMARY KEY AUTOINCREMENT"
+    text_type = "TEXT"
+    
+    # 1. Tabela de Professores
+    cursor.execute(f'''
+        CREATE TABLE IF NOT EXISTS professores (
+            id {id_auto},
+            nome {text_type} NOT NULL,
+            cpf {text_type} UNIQUE NOT NULL,
+            login {text_type},
+            senha {text_type}
+        );
+    ''')
+    
+    # 2. Tabela de Alunos (Aqui onde dava o erro!)
+    cursor.execute(f'''
+        CREATE TABLE IF NOT EXISTS alunos (
+            id {id_auto},
+            nome {text_type} NOT NULL,
+            cpf {text_type},
+            telefone {text_type},
+            instrumento {text_type},
+            dia_aula {text_type},
+            horario_aula {text_type},
+            valor_mensalidade REAL,
+            vencimento_original {text_type}
+        );
+    ''')
+    
+    # 3. Tabela de Agenda
+    cursor.execute(f'''
         CREATE TABLE IF NOT EXISTS agenda (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            id_sala INTEGER,
-            id_professor INTEGER,
-            id_aluno INTEGER,
-            dia_semana TEXT NOT NULL, -- Ex: 'Segunda', 'Terça'
-            horario TEXT NOT NULL,    -- Ex: '14:00'
-            tipo_aula TEXT DEFAULT 'Fixa',
-            data_aula TEXT,
-            FOREIGN KEY (id_sala) REFERENCES salas(id),
-            FOREIGN KEY (id_professor) REFERENCES professores(id),
-            FOREIGN KEY (id_aluno) REFERENCES alunos(id),
-            UNIQUE(id_sala, dia_semana, horario),      -- REGRA: Impede choque de sala no mesmo horário!
-            UNIQUE(id_professor, dia_semana, horario) -- REGRA: Impede o professor de estar em duas aulas ao mesmo tempo!
-        )
+            id {id_auto},
+            dia_semana {text_type} NOT NULL,
+            horario {text_type} NOT NULL,
+            aluno_id INTEGER,
+            tipo_aula {text_type} DEFAULT 'Regular',
+            data_recuperacao {text_type},
+            professor_id INTEGER
+        );
     ''')
-    # 6. Tabela de mensalidades
-    cursor.execute('''
-        CREATE TABLE IF NOT EXISTS mensalidades (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            id_aluno INTEGER NOT NULL,
-            competencia TEXT NOT NULL,
-            valor_devido REAL NOT NULL,
-            status TEXT NOT NULL,
-            data_pagamento TEXT,
-            FOREIGN KEY (id_aluno) REFERENCES alunos(id)
-        )
+    
+    # 4. Tabela de Financeiro
+    cursor.execute(f'''
+        CREATE TABLE IF NOT EXISTS financeiro (
+            id {id_auto},
+            aluno_id INTEGER,
+            mes_referencia {text_type} NOT NULL,
+            valor REAL NOT NULL,
+            status {text_type} DEFAULT 'Pendente',
+            data_pagamento {text_type},
+            tipo {text_type} DEFAULT 'Receita',
+            descricao {text_type}
+        );
     ''')
-    # salva as alterações e fecha a conexão
+    
     conn.commit()
     conn.close()
-
 # Executa a criação do banco de dados assim que o app.py iniciar
 init_db()
 def popular_dados_iniciais():
@@ -368,10 +347,11 @@ def alunos():
         # VÍNCULO AUTOMÁTICO DO PROFESSOR LOGADO
         id_professor_vinc = id_logado 
 
+        # Trocamos todos os '?' por '%s' para funcionar no PostgreSQL
         cursor.execute('''
-            INSERT INTO alunos (nome, id_disciplina, valor_mensalidade, dia_semana, id_professor, cpf_rg, endereco, dia_vencimento)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?);
-        ''', (nome, id_disciplina, valor_mensalidade, dia_semana, id_professor_vinc, cpf_rg, endereco, dia_vencimento))
+            INSERT INTO alunos (nome, cpf, telefone, instrumento, dia_aula, horario_aula, valor_mensalidade, vencimento_original)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+        ''', (nome, cpf, telefone, instrumento, dia_aula, horario_aula, valor_mensalidade, vencimento_original))
         
         conn.commit()
         conn.close() # Lembra-te de fechar a conexão antes do redirect
@@ -550,7 +530,7 @@ def agenda():
     for dia, hora, num_aluno, num_prof, num_curso, tipo in agendamentos_banco:
         hora_formatada = hora[:5]
         
-     # --- LÓGICA DE OCULTAR RECUPERAÇÃO QUE JÁ PASSOU ---
+        # --- LÓGICA DE OCULTAR RECUPERAÇÃO QUE JÁ PASSOU ---
         if tipo == 'Recuperacao':
             # Mapeamento para descobrir o dia de hoje em texto
             dias_semana_pt = {
