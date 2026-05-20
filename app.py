@@ -13,61 +13,24 @@ def is_sqlite_conn(conn):
 def obter_conexao():
     # O Render define automaticamente esta variável na nuvem
     url_banco = os.environ.get("DATABASE_URL")
-
+    
     if url_banco:
         import psycopg
         from psycopg.rows import dict_row
-
+        
+        # Corrige o link caso o Render exija o prefixo correto
         if url_banco.startswith("postgres://"):
             url_banco = url_banco.replace("postgres://", "postgresql://", 1)
-
-        # Conexão direta e limpa para o PostgreSQL
-        return psycopg.connect(url_banco, row_factory=dict_row)
+            
+        # Conecta de forma limpa e direta usando o dict_row nativo do Postgres
+        conn = psycopg.connect(url_banco, row_factory=dict_row)
+        return conn
     else:
-        # Conexão local para o seu SQLite
-        sqlite_conn = sqlite3.connect('estudio_a.db')
-        sqlite_conn.row_factory = sqlite3.Row
-
-        class SQLiteCursorWrapper:
-            def __init__(self, cursor):
-                self._cursor = cursor
-
-            def execute(self, query, params=None):
-                if params is None:
-                    params = ()
-                return self._cursor.execute(query.replace('%s', '?'), params)
-
-            def executemany(self, query, param_seq):
-                return self._cursor.executemany(query.replace('%s', '?'), param_seq)
-
-            def __getattr__(self, name):
-                return getattr(self._cursor, name)
-
-        class SQLiteConnectionWrapper:
-            def __init__(self, conn):
-                self._conn = conn
-
-            def cursor(self, *args, **kwargs):
-                c = self._conn.cursor(*args, **kwargs)
-                return SQLiteCursorWrapper(c)
-
-            def commit(self):
-                return self._conn.commit()
-
-            def close(self):
-                return self._conn.close()
-
-            def __enter__(self):
-                return self
-
-            def __exit__(self, exc_type, exc_value, traceback):
-                self._conn.close()
-
-            def __getattr__(self, name):
-                return getattr(self._conn, name)
-
-        return SQLiteConnectionWrapper(sqlite_conn)
-
+        # Se estiver no teu computador, usa o teu SQLite local de sempre
+        import sqlite3
+        conn = sqlite3.connect('estudio_a.db')
+        conn.row_factory = sqlite3.Row
+        return conn
 app = Flask(__name__)
 
 # CHAVE SECRETA: O Flask precisa disso para criptografar os carimbos (cookies) das sessões.
