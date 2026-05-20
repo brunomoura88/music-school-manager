@@ -13,21 +13,18 @@ def is_sqlite_conn(conn):
 def obter_conexao():
     # O Render define automaticamente esta variável na nuvem
     url_banco = os.environ.get("DATABASE_URL")
-    
+
     if url_banco:
-        # Se estiver na nuvem, usamos um conector inteligente do PostgreSQL
         import psycopg
         from psycopg.rows import dict_row
-        
-        # Corrige o link caso o Render exija o prefixo correto
+
         if url_banco.startswith("postgres://"):
             url_banco = url_banco.replace("postgres://", "postgresql://", 1)
-            
-        # Conecta de forma limpa e direta usando o dict_row nativo
-        conn = psycopg.connect(url_banco, row_factory=dict_row)
-        return conn
+
+        # Conexão direta e limpa para o PostgreSQL
+        return psycopg.connect(url_banco, row_factory=dict_row)
     else:
-        # Se estiver no teu computador, usa o teu SQLite local de sempre
+        # Conexão local para o seu SQLite
         sqlite_conn = sqlite3.connect('estudio_a.db')
         sqlite_conn.row_factory = sqlite3.Row
 
@@ -70,6 +67,7 @@ def obter_conexao():
                 return getattr(self._conn, name)
 
         return SQLiteConnectionWrapper(sqlite_conn)
+
 app = Flask(__name__)
 
 # CHAVE SECRETA: O Flask precisa disso para criptografar os carimbos (cookies) das sessões.
