@@ -16,40 +16,15 @@ def obter_conexao():
     
     if url_banco:
         # Se estiver na nuvem, usamos um conector inteligente do PostgreSQL
-        try:
-            import psycopg
-            from psycopg.rows import dict_row
-        except ImportError as e:
-            raise ImportError(
-                "O pacote psycopg não está instalado. Instale 'psycopg[binary]' "
-                "no seu ambiente virtual e tente novamente."
-            ) from e
+        import psycopg
+        from psycopg.rows import dict_row
         
         # Corrige o link caso o Render exija o prefixo correto
         if url_banco.startswith("postgres://"):
             url_banco = url_banco.replace("postgres://", "postgresql://", 1)
             
+        # Conecta de forma limpa e direta usando o dict_row nativo
         conn = psycopg.connect(url_banco, row_factory=dict_row)
-        original_cursor = conn.cursor
-
-        def patched_cursor(*args, **kwargs):
-            c = original_cursor(*args, **kwargs)
-            original_execute = c.execute
-            original_executemany = c.executemany
-
-            def execute(query, params=None):
-                if params is None:
-                    params = ()
-                return original_execute(query.replace('?', '%s'), params)
-
-            def executemany(query, param_seq):
-                return original_executemany(query.replace('?', '%s'), param_seq)
-
-            c.execute = execute
-            c.executemany = executemany
-            return c
-
-        conn.cursor = patched_cursor
         return conn
     else:
         # Se estiver no teu computador, usa o teu SQLite local de sempre
