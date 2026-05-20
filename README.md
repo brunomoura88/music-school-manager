@@ -14,19 +14,19 @@ O **Music School Manager** é uma plataforma web completa de ERP e gestão escol
 ### Painel de Controlo & Agenda Inteligente
 > Sistema de matriz dinâmica que destaca as aulas do utilizador autenticado em tempo real e oculta automaticamente agendamentos expirados de recuperação.
 <p align="center">
-  <img src="img/agenda.png" alt="Agenda Inteligente" width="90%" style="border-radius: 8px; box-shadow: 0 4px 8px rgba(0,0,0,0.2);">
+  <img src="static/img/agenda.png" alt="Agenda Inteligente" width="90%" style="border-radius: 8px; box-shadow: 0 4px 8px rgba(0,0,0,0.2);">
 </p>
 
 ### Gestão Financeira e Fluxo de Caixa
 > Módulo de contabilidade com gerador automático de mensalidades e seletor dinâmico de competências históricas.
 <p align="center">
-  <img src="img/financeiro.png" alt="Módulo Financeiro" width="90%" style="border-radius: 8px; box-shadow: 0 4px 8px rgba(0,0,0,0.2);">
+  <img src="static/img/dashboard.png" alt="Módulo Financeiro" width="90%" style="border-radius: 8px; box-shadow: 0 4px 8px rgba(0,0,0,0.2);">
 </p>
 
 ### Autenticação Segura (Portal do Professor)
 > Sistema com criptografia avançada de palavras-passe e controlo rígido de sessões de utilizadores.
 <p align="center">
-  <img src="img/login.png" alt="Ecrã de Login" width="90%" style="border-radius: 8px; box-shadow: 0 4px 8px rgba(0,0,0,0.2);">
+  <img src="static/img/cadastro_aluno.png" alt="Ecrã de Login" width="90%" style="border-radius: 8px; box-shadow: 0 4px 8px rgba(0,0,0,0.2);">
 </p>
 
 ---
