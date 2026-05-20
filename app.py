@@ -476,11 +476,10 @@ def alunos():
         # VÍNCULO AUTOMÁTICO DO PROFESSOR LOGADO
         id_professor_vinc = id_logado 
 
-        # Trocamos todos os '?' por '%s' para funcionar no PostgreSQL
         cursor.execute('''
-            INSERT INTO alunos (nome, cpf, telefone, instrumento, dia_aula, horario_aula, id_disciplina, id_professor, valor_mensalidade, vencimento_mensalidade, dia_vencimento, dia_semana, cpf_rg, endereco)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-        ''', (nome, cpf, telefone, instrumento, dia_aula, horario_aula, id_disciplina, id_professor_vinc, valor_mensalidade, dia_vencimento, dia_vencimento, dia_semana, cpf_rg, endereco))
+            INSERT INTO alunos (nome, id_disciplina, valor_mensalidade, dia_semana, id_professor, cpf_rg, endereco, dia_vencimento)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s);
+        ''', (nome, id_disciplina, valor_mensalidade, dia_semana, id_professor_vinc, cpf_rg, endereco, dia_vencimento))
         
         conn.commit()
         conn.close() # Lembra-te de fechar a conexão antes do redirect
