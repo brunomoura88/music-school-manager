@@ -3,7 +3,36 @@ import sqlite3
 from datetime import datetime
 # Importa o gerador e o checador de hashes de senha seguros
 from werkzeug.security import generate_password_hash, check_password_hash
+import os
+import sqlite3
 
+# --- TRUQUE DE ARQUITETURA: CONEXÃO DINÂMICA INTEGRADA ---
+def obter_conexao():
+    # O Render define automaticamente esta variável na nuvem
+    url_banco = os.environ.get("DATABASE_URL")
+    
+    if url_banco:
+        # Se estiver na nuvem, usamos um conector inteligente do PostgreSQL
+        try:
+            import psycopg2
+            from psycopg2.extras import DictCursor
+        except ImportError as e:
+            raise ImportError(
+                "O pacote psycopg2 não está instalado. Instale 'psycopg2-binary' "
+                "no seu ambiente virtual e tente novamente."
+            ) from e
+        
+        # Corrige o link caso o Render exija o prefixo correto
+        if url_banco.startswith("postgres://"):
+            url_banco = url_banco.replace("postgres://", "postgresql://", 1)
+            
+        conn = psycopg2.connect(url_banco, cursor_factory=DictCursor)
+        return conn
+    else:
+        # Se estiver no teu computador, usa o teu SQLite local de sempre
+        conn = sqlite3.connect('estudio_a.db')
+        conn.row_factory = sqlite3.Row
+        return conn
 app = Flask(__name__)
 
 # CHAVE SECRETA: O Flask precisa disso para criptografar os carimbos (cookies) das sessões.
@@ -17,7 +46,7 @@ app.secret_key = 'estudio_a_chave_ultra_secreta_freelancer'
 # ===========================================
 def init_db():
     # Conecta o arquivo do banco ( se não exixtir, o Python cria)
-    conn = sqlite3.connect('estudio_a.db')
+    conn = obter_conexao()
     cursor = conn.cursor()
 
     # Ativa o suporte a Chaves estrangeiras no Sqlite
@@ -140,7 +169,7 @@ def popular_dados_iniciais():
 
 # Garantias de esquema para bancos existentes com versões antigas
 def aplicar_migracoes():
-    conn = sqlite3.connect('estudio_a.db')
+    conn = obter_conexao()
     cursor = conn.cursor()
     try:
         cursor.execute("ALTER TABLE professores ADD COLUMN login TEXT;")
@@ -201,7 +230,7 @@ popular_dados_iniciais()
 # ==========================================
 @app.route('/', methods=['GET', 'POST'])
 def login():
-    conn = sqlite3.connect('estudio_a.db')
+    conn = obter_conexao()
     cursor = conn.cursor()
     
     # TRUQUE DE INFRAESTRUTURA: Cria as colunas de login e senha nos professores caso não existam
@@ -261,7 +290,7 @@ def dashboard():
     id_logado = session['professor_id']
     nome_logado = session['professor_nome']
 
-    conn = sqlite3.connect('estudio_a.db')
+    conn = obter_conexao()
     cursor = conn.cursor()
 
     # --- 1. CONTAR ALUNOS ATIVOS ---
@@ -321,7 +350,7 @@ def alunos():
     id_logado = session['professor_id']
     nome_logado = session['professor_nome']
 
-    conn = sqlite3.connect('estudio_a.db')
+    conn = obter_conexao()
     cursor = conn.cursor()
 
     # 1. PROCESSAR CADASTRO DE NOVO ALUNO (POST)
@@ -384,7 +413,7 @@ def alunos():
 # NOVA ROTA: Rota para deletar o aluno do sistema
 @app.route('/excluir_aluno/<int:id>')
 def excluir_aluno(id):
-    conn = sqlite3.connect('estudio_a.db')
+    conn = obter_conexao()
     cursor = conn.cursor()
     cursor.execute("DELETE FROM alunos WHERE id = ?;", (id,))
     conn.commit()
@@ -397,7 +426,7 @@ def editar_aluno(id_aluno):
         return redirect('/')
 
     id_logado = session['professor_id']
-    conn = sqlite3.connect('estudio_a.db')
+    conn = obter_conexao()
     cursor = conn.cursor()
 
     # --- FORMATO GET: CARREGA OS DADOS ATUAIS NO FORMULÁRIO ---
@@ -451,7 +480,7 @@ def agenda():
     if 'professor_id' not in session:
         return redirect('/')
 
-    conn = sqlite3.connect('estudio_a.db')
+    conn = obter_conexao()
     cursor = conn.cursor()
     cursor.execute("PRAGMA foreign_keys = ON;")
 
@@ -578,7 +607,7 @@ def agenda():
 # NOVA ROTA: Muda o status do aluno para Pago ou cancela a baixa
 @app.route('/baixar_pagamento/<int:id>/<int:status_pago>')
 def baixar_pagamento(id, status_pago):
-    conn = sqlite3.connect('estudio_a.db')
+    conn = obter_conexao()
     cursor = conn.cursor()
     cursor.execute("UPDATE alunos SET pago = ? WHERE id = ?;", (status_pago, id))
     conn.commit()
@@ -587,7 +616,7 @@ def baixar_pagamento(id, status_pago):
 
 @app.route('/criar_senhas_professores')
 def criar_senhas_professores():
-    conn = sqlite3.connect('estudio_a.db')
+    conn = obter_conexao()
     cursor = conn.cursor()
     
     # FORÇA A CRIAÇÃO DAS COLUNAS CASO ELAS NÃO EXISTAM AINDA
@@ -635,7 +664,7 @@ def criar_senhas_professores():
     return "<br>".join(mensagens) + "<br><br><strong>Pronto! Todos os professores foram configurados com a senha padrão: estudioa123</strong>"
 @app.route('/atualizar_banco_agenda')
 def atualizar_banco_agenda():
-    conn = sqlite3.connect('estudio_a.db')
+    conn = obter_conexao()
     cursor = conn.cursor()
     
     # Adiciona as novas colunas necessárias para a inteligência da agenda
@@ -652,7 +681,7 @@ def atualizar_banco_agenda():
 
 @app.route('/atualizar_banco_alunos')
 def atualizar_banco_alunos():
-    conn = sqlite3.connect('estudio_a.db')
+    conn = obter_conexao()
     cursor = conn.cursor()
     try:
         cursor.execute("ALTER TABLE alunos ADD COLUMN id_professor INTEGER REFERENCES professores(id);")
@@ -668,7 +697,7 @@ def gerar_contrato_aluno(id_aluno):
     if 'professor_id' not in session:
         return redirect('/')
 
-    conn = sqlite3.connect('estudio_a.db')
+    conn = obter_conexao()
     cursor = conn.cursor()
     
     # Adicionámos cpf_rg, endereco e dia_vencimento no SELECT
@@ -689,7 +718,7 @@ def gerar_contrato_aluno(id_aluno):
 
 @app.route('/atualizar_banco_contrato_completo')
 def atualizar_banco_contrato_completo():
-    conn = sqlite3.connect('estudio_a.db')
+    conn = obter_conexao()
     cursor = conn.cursor()
     
     mensagens = []
@@ -735,7 +764,7 @@ def financeiro():
     else:
         competencia_atual = datetime.now().strftime('%m/%Y')
 
-    conn = sqlite3.connect('estudio_a.db')
+    conn = obter_conexao()
     cursor = conn.cursor()
 
     # --- GERADOR AUTOMÁTICO DE MENSALIDADES ---
@@ -790,31 +819,6 @@ def financeiro():
         meses_opcoes=meses_disponiveis
     )
 
-    # --- BUSCAR AS MENSALIDADES PARA EXIBIR ---
-    # Se for você (Admin), vê o financeiro de todos. Se for professor comum, pode limitar (ou bloquear o acesso).
-    if nome_logado == 'Bruno Moura':
-        cursor.execute('''
-            SELECT m.id, al.nome, m.competencia, m.valor_devido, m.status, m.data_pagamento, d.nome
-            FROM mensalidades m
-            JOIN alunos al ON m.id_aluno = al.id
-            JOIN disciplinas d ON al.id_disciplina = d.id
-            WHERE m.competencia = ?;
-        ''', (competencia_atual,))
-    else:
-        # Caso queira que os professores vejam apenas os pagamentos dos seus respectivos alunos
-        cursor.execute('''
-            SELECT m.id, al.nome, m.competencia, m.valor_devido, m.status, m.data_pagamento, d.nome
-            FROM mensalidades m
-            JOIN alunos al ON m.id_aluno = al.id
-            JOIN disciplinas d ON al.id_disciplina = d.id
-            WHERE m.competencia = ? AND al.id_professor = ?;
-        ''', (competencia_atual, session['professor_id']))
-        
-    lista_mensalidades = cursor.fetchall()
-    conn.close()
-
-    return render_template('financeiro.html', mensalidades=lista_mensalidades, competencia=competencia_atual)
-
 @app.route('/financeiro/pagar/<int:id_mensalidade>')
 def pagar_mensalidade(id_mensalidade):
     if 'professor_id' not in session:
@@ -822,7 +826,7 @@ def pagar_mensalidade(id_mensalidade):
 
     data_hoje = datetime.now().strftime('%d/%m/%Y')
 
-    conn = sqlite3.connect('estudio_a.db')
+    conn = obter_conexao()
     cursor = conn.cursor()
     
     # Atualiza o status e insere a data do pagamento
@@ -837,11 +841,8 @@ def pagar_mensalidade(id_mensalidade):
     
     return redirect('/financeiro')
 
-init_db()
-popular_dados_iniciais()
 if __name__ == '__main__':
     import os
-    # O Render define a porta automaticamente através de variáveis de ambiente (port)
     porta = int(os.environ.get("PORT", 5000))
     app.run(host='0.0.0.0', port=porta)
 
