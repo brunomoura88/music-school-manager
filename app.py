@@ -32,12 +32,20 @@ def obter_conexao():
         conn = sqlite3.connect('estudio_a.db')
         conn.row_factory = sqlite3.Row
         return conn    
-    # Verifica se estamos usando PostgreSQL (psycopg2) ou SQLite
-    is_postgres = hasattr(conn, 'encoding') or conn.__class__.__name__ == 'connection'
+
+# === RECRIADA A FUNÇÃO CORRETA PARA INICIALIZAR O BANCO ===
+def init_db():
+    conn = obter_conexao()
+    cursor = conn.cursor()
+    
+    # Verifica se estamos usando PostgreSQL (psycopg) ou SQLite
+    is_postgres = hasattr(conn, 'encoding') or conn.__class__.__name__ == 'Connection'
     
     # Define os tipos de autoincremento para cada banco
     id_auto = "SERIAL PRIMARY KEY" if is_postgres else "INTEGER PRIMARY KEY AUTOINCREMENT"
-    text_type = "TEXT"
+    text_type = "VARCHAR(255)" if is_postgres else "TEXT"
+    text_long = "TEXT"
+    real_type = "NUMERIC(10,2)" if is_postgres else "REAL"
     
     # 1. Tabela de Professores
     cursor.execute(f'''
@@ -78,12 +86,12 @@ def obter_conexao():
             horario_aula {text_type},
             id_disciplina INTEGER REFERENCES disciplinas(id),
             id_professor INTEGER REFERENCES professores(id),
-            valor_mensalidade REAL,
+            valor_mensalidade {real_type},
             vencimento_mensalidade {text_type},
             dia_vencimento INTEGER,
             dia_semana {text_type},
             cpf_rg {text_type},
-            endereco {text_type},
+            endereco {text_long},
             pago INTEGER DEFAULT 0
         );
     ''')
@@ -102,24 +110,27 @@ def obter_conexao():
         );
     ''')
     
-    # 4. Tabela de Financeiro
+    # 6. Tabela de Financeiro
     cursor.execute(f'''
         CREATE TABLE IF NOT EXISTS financeiro (
             id {id_auto},
             aluno_id INTEGER,
             mes_referencia {text_type} NOT NULL,
-            valor REAL NOT NULL,
+            valor {real_type} NOT NULL,
             status {text_type} DEFAULT 'Pendente',
             data_pagamento {text_type},
             tipo {text_type} DEFAULT 'Receita',
-            descricao {text_type}
+            descricao {text_long}
         );
     ''')
     
     conn.commit()
+    cursor.close()
     conn.close()
-# Executa a criação do banco de dados assim que o app.py iniciar
+
+# Executa a inicialização obrigatória do banco
 init_db()
+
 def popular_dados_iniciais():
     conn = obter_conexao()
     cursor = conn.cursor()
@@ -141,9 +152,7 @@ def popular_dados_iniciais():
         ('Beatriz Ribeiro', '202', 'beatriz', generate_password_hash('estudioa123'))
     ]
     
-    # Usamos INSERT OR IGNORE para não duplicar você que já existe lá
     for nome, cpf, login, senha in professores:
-        # Verifica se o professor já existe pelo nome
         cursor.execute("SELECT id FROM professores WHERE nome = %s;", (nome,))
         if not cursor.fetchone():
             cursor.execute('''
@@ -152,104 +161,71 @@ def popular_dados_iniciais():
             ''', (nome, cpf, login, senha))
 
     conn.commit()
+    cursor.close()
     conn.close()
 
-# Garantias de esquema para bancos existentes com versões antigas
 def aplicar_migracoes():
     conn = obter_conexao()
     cursor = conn.cursor()
-    try:
-        cursor.execute("ALTER TABLE professores ADD COLUMN login TEXT;")
-    except Exception:
-        pass
-    try:
-        cursor.execute("ALTER TABLE professores ADD COLUMN senha TEXT;")
-    except Exception:
-        pass
-    try:
-        cursor.execute("ALTER TABLE alunos ADD COLUMN cpf_rg TEXT;")
-    except Exception:
-        pass
-    try:
-        cursor.execute("ALTER TABLE alunos ADD COLUMN endereco TEXT;")
-    except Exception:
-        pass
-    try:
-        cursor.execute("ALTER TABLE alunos ADD COLUMN dia_vencimento INTEGER;")
-    except Exception:
-        pass
-    try:
-        cursor.execute("ALTER TABLE alunos ADD COLUMN pago INTEGER DEFAULT 0;")
-    except Exception:
-        pass
-    try:
-        cursor.execute("ALTER TABLE alunos ADD COLUMN dia_semana TEXT;")
-    except Exception:
-        pass
-    try:
-        cursor.execute("ALTER TABLE alunos ADD COLUMN id_disciplina INTEGER;")
-    except Exception:
-        pass
-    try:
-        cursor.execute("ALTER TABLE alunos ADD COLUMN id_professor INTEGER;")
-    except Exception:
-        pass
-    try:
-        cursor.execute("ALTER TABLE alunos ADD COLUMN vencimento_mensalidade TEXT;")
-    except Exception:
-        pass
-    try:
-        cursor.execute("ALTER TABLE agenda ADD COLUMN id_sala INTEGER;")
-    except Exception:
-        pass
-    try:
-        cursor.execute("ALTER TABLE agenda ADD COLUMN id_professor INTEGER;")
-    except Exception:
-        pass
+    
+    # Verifica se estamos usando SQLite para a função is_sqlite_conn nativa
+    is_postgres = hasattr(conn, 'encoding') or conn.__class__.__name__ == 'Connection'
+    id_auto = 'SERIAL PRIMARY KEY' if is_postgres else 'INTEGER PRIMARY KEY AUTOINCREMENT'
+    real_type = "NUMERIC(10,2)" if is_postgres else "REAL"
+    
+    # Tenta rodar as migrações prevenindo falhas no Postgres
+    tabelas_colunas = [
+        ("professores", "login TEXT"),
+        ("professores", "senha TEXT"),
+        ("alunos", "cpf_rg TEXT"),
+        ("alunos", "endereco TEXT"),
+        ("alunos", "dia_vencimento INTEGER"),
+        ("alunos", "pago INTEGER DEFAULT 0"),
+        ("alunos", "dia_semana TEXT"),
+        ("alunos", "id_disciplina INTEGER"),
+        ("alunos", "id_professor INTEGER"),
+        ("alunos", "vencimento_mensalidade TEXT"),
+        ("agenda", "id_sala INTEGER"),
+        ("agenda", "id_professor INTEGER"),
+        ("agenda", "id_aluno INTEGER"),
+        ("agenda", "tipo_aula TEXT DEFAULT 'Fixa'"),
+        ("agenda", "data_aula TEXT")
+    ]
+    
+    for tabela, coluna in tabelas_colunas:
+        try:
+            cursor.execute(f"ALTER TABLE {tabela} ADD COLUMN {coluna};")
+            conn.commit()
+        except Exception:
+            pass
+
     try:
         cursor.execute("UPDATE agenda SET id_professor = professor_id WHERE id_professor IS NULL AND professor_id IS NOT NULL;")
-    except Exception:
-        pass
-    try:
-        cursor.execute("ALTER TABLE agenda ADD COLUMN id_aluno INTEGER;")
-    except Exception:
-        pass
-    try:
         cursor.execute("UPDATE agenda SET id_aluno = aluno_id WHERE id_aluno IS NULL AND aluno_id IS NOT NULL;")
-    except Exception:
-        pass
-    try:
-        cursor.execute("ALTER TABLE agenda ADD COLUMN tipo_aula TEXT DEFAULT 'Fixa';")
-    except Exception:
-        pass
-    try:
-        cursor.execute("ALTER TABLE agenda ADD COLUMN data_aula TEXT;")
-    except Exception:
-        pass
-    try:
         cursor.execute("UPDATE agenda SET data_aula = data_recuperacao WHERE data_aula IS NULL AND data_recuperacao IS NOT NULL;")
+        conn.commit()
     except Exception:
         pass
-    is_postgres = not is_sqlite_conn(conn)
-    id_auto = 'SERIAL PRIMARY KEY' if is_postgres else 'INTEGER PRIMARY KEY AUTOINCREMENT'
+
     cursor.execute(f'''
         CREATE TABLE IF NOT EXISTS mensalidades (
             id {id_auto},
             id_aluno INTEGER NOT NULL,
-            competencia TEXT NOT NULL,
-            valor_devido REAL NOT NULL,
-            status TEXT NOT NULL,
-            data_pagamento TEXT,
+            competencia VARCHAR(50) NOT NULL,
+            valor_devido {real_type} NOT NULL,
+            status VARCHAR(50) NOT NULL,
+            data_pagamento VARCHAR(50),
             FOREIGN KEY (id_aluno) REFERENCES alunos(id)
-        )
+        );
     ''')
     conn.commit()
+    cursor.close()
     conn.close()
 
+# Execuções automáticas de checagem de dados e migrações
 aplicar_migracoes()
-
-# Chame a função logo após o init_db() para garantir que rode
 popular_dados_iniciais()
+
 # ==========================================
 # ROTAS DO SISTEMA
 # ==========================================
