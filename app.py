@@ -420,12 +420,17 @@ def alunos():
     # 1. PROCESSAR CADASTRO DE NOVO ALUNO (POST)
     if request.method == 'POST':
         nome = request.form.get('nome')
+        cpf = request.form.get('cpf')
+        telefone = request.form.get('telefone')
+        instrumento = request.form.get('instrumento')
+        dia_aula = request.form.get('dia_aula')
+        horario_aula = request.form.get('horario_aula')
         id_disciplina = request.form.get('id_disciplina')
         valor_mensalidade = request.form.get('valor')
         dia_semana = request.form.get('dia_semana') # Mantém o dia que já tinhas
         
         # NOVOS CAMPOS CAPTURADOS DO TEU FORMULÁRIO:
-        cpf_rg = request.form.get('cpf')
+        cpf_rg = request.form.get('cpf_rg') if request.form.get('cpf_rg') else request.form.get('cpf')
         endereco = request.form.get('endereco')
         dia_vencimento = request.form.get('dia_vencimento')
         
