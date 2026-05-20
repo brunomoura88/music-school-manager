@@ -3,7 +3,6 @@ import sqlite3
 from datetime import datetime
 # Importa o gerador e o checador de hashes de senha seguros
 from werkzeug.security import generate_password_hash, check_password_hash
-from werkzeug.security import generate_password_hash, check_password_hash
 
 app = Flask(__name__)
 
@@ -38,7 +37,9 @@ def init_db():
                         id INTEGER PRIMARY KEY AUTOINCREMENT,
                         nome TEXT NOT NULL UNIQUE,
                         cpf TEXT NOT NULL UNIQUE,
-                        endereco TEXT
+                        endereco TEXT,
+                        login TEXT UNIQUE,
+                        senha TEXT
                    )
             ''')   
     
@@ -56,10 +57,13 @@ def init_db():
         nome TEXT NOT NULL,
         cpf_rg TEXT,
         endereco TEXT,
+        dia_vencimento INTEGER,
         vencimento_mensalidade INTEGER NOT NULL,
         valor_mensalidade REAL DEFAULT 220.00,
+        pago INTEGER DEFAULT 0,
         id_professor INTEGER,
         id_disciplina INTEGER,
+        dia_semana TEXT,
         FOREIGN KEY (id_professor) REFERENCES professores(id),
         FOREIGN KEY (id_disciplina) REFERENCES disciplinas(id)
     )
@@ -73,11 +77,25 @@ def init_db():
             id_aluno INTEGER,
             dia_semana TEXT NOT NULL, -- Ex: 'Segunda', 'Terça'
             horario TEXT NOT NULL,    -- Ex: '14:00'
+            tipo_aula TEXT DEFAULT 'Fixa',
+            data_aula TEXT,
             FOREIGN KEY (id_sala) REFERENCES salas(id),
             FOREIGN KEY (id_professor) REFERENCES professores(id),
             FOREIGN KEY (id_aluno) REFERENCES alunos(id),
             UNIQUE(id_sala, dia_semana, horario),      -- REGRA: Impede choque de sala no mesmo horário!
             UNIQUE(id_professor, dia_semana, horario) -- REGRA: Impede o professor de estar em duas aulas ao mesmo tempo!
+        )
+    ''')
+    # 6. Tabela de mensalidades
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS mensalidades (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            id_aluno INTEGER NOT NULL,
+            competencia TEXT NOT NULL,
+            valor_devido REAL NOT NULL,
+            status TEXT NOT NULL,
+            data_pagamento TEXT,
+            FOREIGN KEY (id_aluno) REFERENCES alunos(id)
         )
     ''')
     # salva as alterações e fecha a conexão
@@ -93,6 +111,10 @@ def popular_dados_iniciais():
     # Garante que as disciplinas básicas existam
     disciplinas = [('Violão',), ('Guitarra',), ('Teclado',), ('Bateria',), ('Canto',), ('Contra-Baixo',)]
     cursor.executemany("INSERT OR IGNORE INTO disciplinas (nome) VALUES (?);", disciplinas)
+
+    # Garante que as salas básicas existam
+    salas = [('Sala 01',), ('Sala 02',)]
+    cursor.executemany("INSERT OR IGNORE INTO salas (nome) VALUES (?);", salas)
 
     # CADASTRO REAL DE TODOS OS PROFESSORES DA ESCOLA
     professores = [
@@ -116,28 +138,64 @@ def popular_dados_iniciais():
     conn.commit()
     conn.close()
 
-# Chame a função logo após o init_db() para garantir que rode
-popular_dados_iniciais()
-def popular_dados_iniciais():
+# Garantias de esquema para bancos existentes com versões antigas
+def aplicar_migracoes():
     conn = sqlite3.connect('estudio_a.db')
     cursor = conn.cursor()
-    
-    # Inserir as disciplinas iniciais
-    disciplinas = ['Violão', 'Guitarra', 'Baixo', 'Técnica Vocal', 'Piano', 'Inicialização Musical', 'Bateria']
-    for d in disciplinas:
-        cursor.execute("INSERT OR IGNORE INTO disciplinas (nome) VALUES (?);", (d,))
-        
-    # Inserir as duas salas
-    salas = ['Sala 01', 'Sala 02']
-    for s in salas:
-        cursor.execute("INSERT OR IGNORE INTO salas (nome) VALUES (?);", (s,))
-        
-    # CADASTRO DE TESTE: Vamos criar o professor Bruno com a senha '1234'
-    # Usaremos o CPF '123' apenas para testar rápido no teclado
-    cursor.execute("INSERT OR IGNORE INTO professores (id, nome, cpf, endereco) VALUES (1, 'Bruno Moura', '123', 'Rua da Escola, 10');")
-        
+    try:
+        cursor.execute("ALTER TABLE professores ADD COLUMN login TEXT;")
+    except sqlite3.OperationalError:
+        pass
+    try:
+        cursor.execute("ALTER TABLE professores ADD COLUMN senha TEXT;")
+    except sqlite3.OperationalError:
+        pass
+    try:
+        cursor.execute("ALTER TABLE alunos ADD COLUMN cpf_rg TEXT;")
+    except sqlite3.OperationalError:
+        pass
+    try:
+        cursor.execute("ALTER TABLE alunos ADD COLUMN endereco TEXT;")
+    except sqlite3.OperationalError:
+        pass
+    try:
+        cursor.execute("ALTER TABLE alunos ADD COLUMN dia_vencimento INTEGER;")
+    except sqlite3.OperationalError:
+        pass
+    try:
+        cursor.execute("ALTER TABLE alunos ADD COLUMN pago INTEGER DEFAULT 0;")
+    except sqlite3.OperationalError:
+        pass
+    try:
+        cursor.execute("ALTER TABLE alunos ADD COLUMN dia_semana TEXT;")
+    except sqlite3.OperationalError:
+        pass
+    try:
+        cursor.execute("ALTER TABLE agenda ADD COLUMN tipo_aula TEXT DEFAULT 'Fixa';")
+    except sqlite3.OperationalError:
+        pass
+    try:
+        cursor.execute("ALTER TABLE agenda ADD COLUMN data_aula TEXT;")
+    except sqlite3.OperationalError:
+        pass
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS mensalidades (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            id_aluno INTEGER NOT NULL,
+            competencia TEXT NOT NULL,
+            valor_devido REAL NOT NULL,
+            status TEXT NOT NULL,
+            data_pagamento TEXT,
+            FOREIGN KEY (id_aluno) REFERENCES alunos(id)
+        )
+    ''')
     conn.commit()
     conn.close()
+
+aplicar_migracoes()
+
+# Chame a função logo após o init_db() para garantir que rode
+popular_dados_iniciais()
 # ==========================================
 # ROTAS DO SISTEMA
 # ==========================================
@@ -782,7 +840,10 @@ def pagar_mensalidade(id_mensalidade):
 init_db()
 popular_dados_iniciais()
 if __name__ == '__main__':
-    app.run(debug=True)
+    import os
+    # O Render define a porta automaticamente através de variáveis de ambiente (port)
+    porta = int(os.environ.get("PORT", 5000))
+    app.run(host='0.0.0.0', port=porta)
 
 
     
