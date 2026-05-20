@@ -4,9 +4,12 @@ from datetime import datetime
 # Importa o gerador e o checador de hashes de senha seguros
 from werkzeug.security import generate_password_hash, check_password_hash
 import os
-import sqlite3
 
 # --- TRUQUE DE ARQUITETURA: CONEXÃO DINÂMICA INTEGRADA ---
+
+def is_sqlite_conn(conn):
+    return conn.__class__.__module__.startswith('sqlite3')
+
 def obter_conexao():
     # O Render define automaticamente esta variável na nuvem
     url_banco = os.environ.get("DATABASE_URL")
@@ -27,6 +30,26 @@ def obter_conexao():
             url_banco = url_banco.replace("postgres://", "postgresql://", 1)
             
         conn = psycopg2.connect(url_banco, cursor_factory=DictCursor)
+        original_cursor = conn.cursor
+
+        def patched_cursor(*args, **kwargs):
+            c = original_cursor(*args, **kwargs)
+            original_execute = c.execute
+            original_executemany = c.executemany
+
+            def execute(query, params=None):
+                if params is None:
+                    params = ()
+                return original_execute(query.replace('?', '%s'), params)
+
+            def executemany(query, param_seq):
+                return original_executemany(query.replace('?', '%s'), param_seq)
+
+            c.execute = execute
+            c.executemany = executemany
+            return c
+
+        conn.cursor = patched_cursor
         return conn
     else:
         # Se estiver no teu computador, usa o teu SQLite local de sempre
@@ -113,16 +136,16 @@ def init_db():
 # Executa a criação do banco de dados assim que o app.py iniciar
 init_db()
 def popular_dados_iniciais():
-    conn = sqlite3.connect('estudio_a.db')
+    conn = obter_conexao()
     cursor = conn.cursor()
 
     # Garante que as disciplinas básicas existam
     disciplinas = [('Violão',), ('Guitarra',), ('Teclado',), ('Bateria',), ('Canto',), ('Contra-Baixo',)]
-    cursor.executemany("INSERT OR IGNORE INTO disciplinas (nome) VALUES (?);", disciplinas)
+    cursor.executemany("INSERT INTO disciplinas (nome) VALUES (%s) ON CONFLICT (nome) DO NOTHING;", disciplinas)
 
     # Garante que as salas básicas existam
     salas = [('Sala 01',), ('Sala 02',)]
-    cursor.executemany("INSERT OR IGNORE INTO salas (nome) VALUES (?);", salas)
+    cursor.executemany("INSERT INTO salas (nome) VALUES (%s) ON CONFLICT (nome) DO NOTHING;", salas)
 
     # CADASTRO REAL DE TODOS OS PROFESSORES DA ESCOLA
     professores = [
@@ -136,11 +159,11 @@ def popular_dados_iniciais():
     # Usamos INSERT OR IGNORE para não duplicar você que já existe lá
     for nome, cpf, login, senha in professores:
         # Verifica se o professor já existe pelo nome
-        cursor.execute("SELECT id FROM professores WHERE nome = ?;", (nome,))
+        cursor.execute("SELECT id FROM professores WHERE nome = %s;", (nome,))
         if not cursor.fetchone():
             cursor.execute('''
                 INSERT INTO professores (nome, cpf, login, senha) 
-                VALUES (?, ?, ?, ?);
+                VALUES (%s, %s, %s, %s);
             ''', (nome, cpf, login, senha))
 
     conn.commit()
@@ -152,43 +175,45 @@ def aplicar_migracoes():
     cursor = conn.cursor()
     try:
         cursor.execute("ALTER TABLE professores ADD COLUMN login TEXT;")
-    except sqlite3.OperationalError:
+    except Exception:
         pass
     try:
         cursor.execute("ALTER TABLE professores ADD COLUMN senha TEXT;")
-    except sqlite3.OperationalError:
+    except Exception:
         pass
     try:
         cursor.execute("ALTER TABLE alunos ADD COLUMN cpf_rg TEXT;")
-    except sqlite3.OperationalError:
+    except Exception:
         pass
     try:
         cursor.execute("ALTER TABLE alunos ADD COLUMN endereco TEXT;")
-    except sqlite3.OperationalError:
+    except Exception:
         pass
     try:
         cursor.execute("ALTER TABLE alunos ADD COLUMN dia_vencimento INTEGER;")
-    except sqlite3.OperationalError:
+    except Exception:
         pass
     try:
         cursor.execute("ALTER TABLE alunos ADD COLUMN pago INTEGER DEFAULT 0;")
-    except sqlite3.OperationalError:
+    except Exception:
         pass
     try:
         cursor.execute("ALTER TABLE alunos ADD COLUMN dia_semana TEXT;")
-    except sqlite3.OperationalError:
+    except Exception:
         pass
     try:
         cursor.execute("ALTER TABLE agenda ADD COLUMN tipo_aula TEXT DEFAULT 'Fixa';")
-    except sqlite3.OperationalError:
+    except Exception:
         pass
     try:
         cursor.execute("ALTER TABLE agenda ADD COLUMN data_aula TEXT;")
-    except sqlite3.OperationalError:
+    except Exception:
         pass
-    cursor.execute('''
+    is_postgres = not is_sqlite_conn(conn)
+    id_auto = 'SERIAL PRIMARY KEY' if is_postgres else 'INTEGER PRIMARY KEY AUTOINCREMENT'
+    cursor.execute(f'''
         CREATE TABLE IF NOT EXISTS mensalidades (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            id {id_auto},
             id_aluno INTEGER NOT NULL,
             competencia TEXT NOT NULL,
             valor_devido REAL NOT NULL,
@@ -217,7 +242,7 @@ def login():
         cursor.execute("ALTER TABLE professores ADD COLUMN login TEXT;")
         cursor.execute("ALTER TABLE professores ADD COLUMN senha TEXT;")
         conn.commit()
-    except sqlite3.OperationalError:
+    except Exception:
         pass # Se já existirem, ignora e segue
 
     erro = None
@@ -226,7 +251,7 @@ def login():
         usuario_input = request.form.get('cpf') # mantemos o name do input antigo para não quebrar o HTML
         senha_input = request.form.get('senha')
 
-        cursor.execute("SELECT id, nome, senha FROM professores WHERE login = ? OR cpf = ?;", (usuario_input, usuario_input))
+        cursor.execute("SELECT id, nome, senha FROM professores WHERE login = %s OR cpf = %s;", (usuario_input, usuario_input))
         professor = cursor.fetchone()
 
         if professor:
@@ -238,7 +263,7 @@ def login():
                 # Se a senha antiga era texto limpo, vamos atualizá-la automaticamente para hash agora mesmo!
                 if senha_banco == senha_input:
                     senha_com_hash = generate_password_hash(senha_input)
-                    cursor.execute("UPDATE professores SET senha = ? WHERE id = ?;", (senha_com_hash, id_prof))
+                    cursor.execute("UPDATE professores SET senha = %s WHERE id = %s;", (senha_com_hash, id_prof))
                     conn.commit()
 
                 # CRIANDO O CARIMBO DA SESSÃO
@@ -278,7 +303,7 @@ def dashboard():
         cursor.execute("SELECT COUNT(*) FROM alunos;")
     else:
         # Professores comuns só vêem a contagem dos seus próprios alunos
-        cursor.execute("SELECT COUNT(*) FROM alunos WHERE id_professor = ?;", (id_logado,))
+        cursor.execute("SELECT COUNT(*) FROM alunos WHERE id_professor = %s;", (id_logado,))
     total_alunos = cursor.fetchone()[0]
 
     # --- 2. CONTAR AULAS DE HOJE ---
@@ -292,10 +317,10 @@ def dashboard():
 
     if nome_logado == 'Bruno Moura':
         # Buscamos na tabela AGENDA quantas aulas estão marcadas para hoje na escola inteira
-        cursor.execute("SELECT COUNT(*) FROM agenda WHERE dia_semana = ?;", (dia_atual_pt,))
+        cursor.execute("SELECT COUNT(*) FROM agenda WHERE dia_semana = %s;", (dia_atual_pt,))
     else:
         # Professores comuns vêem quantas aulas eles têm na AGENDA hoje
-        cursor.execute("SELECT COUNT(*) FROM agenda WHERE dia_semana = ? AND id_professor = ?;", (dia_atual_pt, id_logado))
+        cursor.execute("SELECT COUNT(*) FROM agenda WHERE dia_semana = %s AND id_professor = %s;", (dia_atual_pt, id_logado))
     aulas_hoje = cursor.fetchone()[0]
 
     conn.close()
@@ -374,7 +399,7 @@ def alunos():
             FROM alunos al
             LEFT JOIN disciplinas d ON al.id_disciplina = d.id
             LEFT JOIN professores p ON al.id_professor = p.id
-            WHERE al.id_professor = ?;
+            WHERE al.id_professor = %s;
         ''', (id_logado,))
         
     alunos_lista = cursor.fetchall()
@@ -395,7 +420,7 @@ def alunos():
 def excluir_aluno(id):
     conn = obter_conexao()
     cursor = conn.cursor()
-    cursor.execute("DELETE FROM alunos WHERE id = ?;", (id,))
+    cursor.execute("DELETE FROM alunos WHERE id = %s;", (id,))
     conn.commit()
     conn.close()
     return redirect('/alunos')
@@ -415,7 +440,7 @@ def editar_aluno(id_aluno):
         cursor.execute('''
             SELECT id, nome, cpf_rg, endereco, vencimento_mensalidade, valor_mensalidade, id_disciplina, id_professor 
             FROM alunos 
-            WHERE id = ?;
+            WHERE id = %s;
         ''', (id_aluno,))
         aluno_dados = cursor.fetchone()
 
@@ -446,8 +471,8 @@ def editar_aluno(id_aluno):
         # Faz a atualização cirúrgica usando o UPDATE
         cursor.execute('''
             UPDATE alunos 
-            SET nome = ?, cpf_rg = ?, endereco = ?, vencimento_mensalidade = ?, valor_mensalidade = ?, id_disciplina = ?, id_professor = ?
-            WHERE id = ?;
+            SET nome = %s, cpf_rg = %s, endereco = %s, vencimento_mensalidade = %s, valor_mensalidade = %s, id_disciplina = %s, id_professor = %s
+            WHERE id = %s;
         ''', (nome, cpf_rg, endereco, vencimento_mensalidade, valor_mensalidade, id_disciplina, id_professor, id_aluno))
         
         conn.commit()
@@ -462,7 +487,8 @@ def agenda():
 
     conn = obter_conexao()
     cursor = conn.cursor()
-    cursor.execute("PRAGMA foreign_keys = ON;")
+    if is_sqlite_conn(conn):
+        cursor.execute("PRAGMA foreign_keys = ON;")
 
     erro = None
 
@@ -488,12 +514,12 @@ def agenda():
             # AJUSTE NO INSERT: Agora gravando tipo_aula e data_aula
             cursor.execute('''
                 INSERT INTO agenda (id_sala, id_professor, id_aluno, dia_semana, horario, tipo_aula, data_aula)
-                VALUES (?, ?, ?, ?, ?, ?, ?);
-            ''', (id_sala, id_professor, id_aluno, dia_semana, horario, tipo_aula, data_aula))
+                VALUES (%s, %s, %s, %s, %s, %s, %s);
+                ''', (id_sala, id_professor, id_aluno, dia_semana, horario, tipo_aula, data_aula))
             conn.commit()
             conn.close()
             return redirect(f'/agenda?sala_id={id_sala}') # Volta mantendo a sala aberta
-        except sqlite3.IntegrityError:
+        except Exception:
             erro = "Conflito de Horário! A sala ou o professor já possuem aula agendada neste dia e horário."
 
     # 2. MONTAR A GRADE HORÁRIA (GET)
@@ -519,8 +545,8 @@ def agenda():
         JOIN alunos al ON age.id_aluno = al.id
         JOIN professores p ON age.id_professor = p.id
         JOIN disciplinas d ON al.id_disciplina = d.id
-        WHERE age.id_sala = ?
-        AND (age.tipo_aula = 'Fixa' OR (age.tipo_aula = 'Recuperacao' AND age.data_aula >= ?));
+        WHERE age.id_sala = %s
+        AND (age.tipo_aula = 'Fixa' OR (age.tipo_aula = 'Recuperacao' AND age.data_aula >= %s));
     ''', (sala_selecionada, data_hoje))
     agendamentos_banco = cursor.fetchall()
 
@@ -589,7 +615,7 @@ def agenda():
 def baixar_pagamento(id, status_pago):
     conn = obter_conexao()
     cursor = conn.cursor()
-    cursor.execute("UPDATE alunos SET pago = ? WHERE id = ?;", (status_pago, id))
+    cursor.execute("UPDATE alunos SET pago = %s WHERE id = %s;", (status_pago, id))
     conn.commit()
     conn.close()
     return redirect('/financeiro')
@@ -604,7 +630,7 @@ def criar_senhas_professores():
         cursor.execute("ALTER TABLE professores ADD COLUMN login TEXT;")
         cursor.execute("ALTER TABLE professores ADD COLUMN senha TEXT;")
         conn.commit()
-    except sqlite3.OperationalError:
+    except Exception:
         pass # Se as colunas já existirem, ignora o erro e segue em frente
         
     # Daqui para baixo continua o seu código normal...
@@ -622,7 +648,7 @@ def criar_senhas_professores():
     
     for nome_prof, login_prof in professores_config.items():
         # Verificamos se o professor existe no banco (usando LIKE para evitar problemas de acentuação)
-        cursor.execute("SELECT id FROM professores WHERE nome LIKE ?;", (f"%{nome_prof}%",))
+        cursor.execute("SELECT id FROM professores WHERE nome LIKE %s;", (f"%{nome_prof}%",))
         resultado = cursor.fetchone()
         
         if resultado:
@@ -630,8 +656,8 @@ def criar_senhas_professores():
             # Atualiza o login e a senha criptografada do professor
             cursor.execute('''
                 UPDATE professores 
-                SET login = ?, senha = ? 
-                WHERE id = ?;
+                SET login = %s, senha = %s 
+                WHERE id = %s;
             ''', (login_prof, senha_padrao_hash, id_prof))
             mensagens.append(f"✅ Professor {nome_prof} atualizado! Login: {login_prof}")
         else:
@@ -653,7 +679,7 @@ def atualizar_banco_agenda():
         cursor.execute("ALTER TABLE agenda ADD COLUMN data_aula TEXT;")
         conn.commit()
         mensagem = "✅ Banco de dados atualizado com sucesso! Colunas 'tipo_aula' e 'data_aula' criadas."
-    except sqlite3.OperationalError:
+    except Exception:
         mensagem = "⚠️ As colunas já existem ou o banco já estava atualizado."
         
     conn.close()
@@ -667,7 +693,7 @@ def atualizar_banco_alunos():
         cursor.execute("ALTER TABLE alunos ADD COLUMN id_professor INTEGER REFERENCES professores(id);")
         conn.commit()
         mensagem = "✅ Tabela 'alunos' atualizada! Coluna 'id_professor' criada."
-    except sqlite3.OperationalError:
+    except Exception:
         mensagem = "⚠️ A coluna 'id_professor' já existe na tabela de alunos."
     conn.close()
     return f"<h3>{mensagem}</h3><br><a href='/dashboard'>Voltar para o Dashboard</a>"
@@ -685,7 +711,7 @@ def gerar_contrato_aluno(id_aluno):
         SELECT al.id, al.nome, al.id_disciplina, d.nome, al.valor_mensalidade, al.cpf_rg, al.endereco, al.dia_vencimento
         FROM alunos al
         JOIN disciplinas d ON al.id_disciplina = d.id
-        WHERE al.id = ?;
+        WHERE al.id = %s;
     ''', (id_aluno,))
     
     aluno_dados = cursor.fetchone()
@@ -707,21 +733,21 @@ def atualizar_banco_contrato_completo():
     try:
         cursor.execute("ALTER TABLE alunos ADD COLUMN cpf_rg TEXT;")
         mensagens.append("✅ Coluna 'cpf_rg' criada.")
-    except sqlite3.OperationalError:
+    except Exception:
         mensagens.append("⚠️ Coluna 'cpf_rg' já existia.")
         
     # Tenta adicionar endereco
     try:
         cursor.execute("ALTER TABLE alunos ADD COLUMN endereco TEXT;")
         mensagens.append("✅ Coluna 'endereco' criada.")
-    except sqlite3.OperationalError:
+    except Exception:
         mensagens.append("⚠️ Coluna 'endereco' já existia.")
         
     # Tenta adicionar dia_vencimento
     try:
         cursor.execute("ALTER TABLE alunos ADD COLUMN dia_vencimento INTEGER;")
         mensagens.append("✅ Coluna 'dia_vencimento' criada.")
-    except sqlite3.OperationalError:
+    except Exception:
         mensagens.append("⚠️ Coluna 'dia_vencimento' já existia.")
         
     conn.commit()
@@ -754,13 +780,13 @@ def financeiro():
         all_alunos = cursor.fetchall()
         
         for id_aluno, valor in all_alunos:
-            cursor.execute("SELECT id FROM mensalidades WHERE id_aluno = ? AND competencia = ?;", (id_aluno, competencia_atual))
+            cursor.execute("SELECT id FROM mensalidades WHERE id_aluno = %s AND competencia = %s;", (id_aluno, competencia_atual))
             existe = cursor.fetchone()
             if not existe:
                 cursor.execute('''
                     INSERT INTO mensalidades (id_aluno, competencia, valor_devido, status)
-                    VALUES (?, ?, ?, 'Pendente');
-                ''', (id_aluno, competencia_atual, valor))
+                        VALUES (%s, %s, %s, 'Pendente');
+                    ''', (id_aluno, competencia_atual, valor))
         conn.commit()
 
     # --- LISTAR OS MESES DISPONÍVEIS PARA O SELETOR (Histórico de cobranças existentes) ---
@@ -778,7 +804,7 @@ def financeiro():
             FROM mensalidades m
             JOIN alunos al ON m.id_aluno = al.id
             JOIN disciplinas d ON al.id_disciplina = d.id
-            WHERE m.competencia = ?;
+            WHERE m.competencia = %s;
         ''', (competencia_atual,))
     else:
         cursor.execute('''
@@ -786,7 +812,7 @@ def financeiro():
             FROM mensalidades m
             JOIN alunos al ON m.id_aluno = al.id
             JOIN disciplinas d ON al.id_disciplina = d.id
-            WHERE m.competencia = ? AND al.id_professor = ?;
+            WHERE m.competencia = %s AND al.id_professor = %s;
         ''', (competencia_atual, session['professor_id']))
         
     lista_mensalidades = cursor.fetchall()
@@ -812,8 +838,8 @@ def pagar_mensalidade(id_mensalidade):
     # Atualiza o status e insere a data do pagamento
     cursor.execute('''
         UPDATE mensalidades 
-        SET status = 'Pago', data_pagamento = ? 
-        WHERE id = ?;
+        SET status = 'Pago', data_pagamento = %s 
+        WHERE id = %s;
     ''', (data_hoje, id_mensalidade))
     
     conn.commit()
