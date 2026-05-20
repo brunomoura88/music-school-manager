@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <title>Estúdio A - Editar Aluno</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@v5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body { background-color: #121212; color: white; font-family: sans-serif; }
+        .painel-cadastro { background-color: #1a1a1a; border: 1px solid #2a2a2a; border-radius: 12px; padding: 30px; max-width: 600px; margin: 50px auto; }
+        .form-control, .form-select { background-color: #252525; border: 1px solid #333; color: white; }
+        .form-control:focus, .form-select:focus { background-color: #303030; border-color: #800020; color: white; box-shadow: none; }
+        .btn-bordor { background-color: #800020; color: white; font-weight: bold; }
+        .btn-bordor:hover { background-color: #600018; color: white; }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <div class="painel-cadastro shadow-lg">
+            <h3 class="text-warning mb-4"><i class="bi bi-pencil-square me-2"></i>EDITAR ALUNO</h3>
+            
+            <form action="/aluno/editar/{{ aluno[0] }}" method="POST">
+                
+                <div class="mb-3">
+                    <label class="form-label">Nome Completo</label>
+                    <input type="text" name="nome" class="form-control" value="{{ aluno[1] }}" required>
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label">CPF ou RG</label>
+                    <input type="text" name="cpf" class="form-control" value="{{ aluno[2] if aluno[2] else '' }}">
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label">Endereço</label>
+                    <input type="text" name="endereco" class="form-control" value="{{ aluno[3] if aluno[3] else '' }}">
+                </div>
+
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label">Dia Vencimento</label>
+                        <input type="number" name="dia_vencimento" class="form-control" value="{{ aluno[4] if aluno[4] else '' }}" placeholder="Ex: 10">
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label">Valor Mensalidade</label>
+                        <input type="text" name="valor" class="form-control" value="{{ aluno[5] }}" required>
+                    </div>
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label">Disciplina</label>
+                    <select name="id_disciplina" class="form-select" required>
+                        {% for d in disciplinas %}
+                            <option value="{{ d[0] }}" {% if d[0] == aluno[6] %} selected {% endif %}>{{ d[1] }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div class="mb-4">
+                    <label class="form-label">Professor</label>
+                    <select name="id_professor" class="form-select" required>
+                        {% for p in professores %}
+                            <option value="{{ p[0] }}" {% if p[0] == aluno[7] %} selected {% endif %}>{{ p[1] }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div class="d-flex justify-content-between">
+                    <a href="/alunos" class="btn btn-secondary px-4">Cancelar</a>
+                    <button type="submit" class="btn btn-bordor px-5">SALVAR ALTERAÇÕES</button>
+                </div>
+
+            </form>
+        </div>
+    </div>
+
+</body>
+</html>

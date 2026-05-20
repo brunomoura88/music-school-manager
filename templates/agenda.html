@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Estúdio A - Agenda de Aulas</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css">
+    <style>
+        body { background-color: #1a1a1a; color: white; }
+        .navbar-estudio { background-color: #000000; border-bottom: 3px solid #800000; }
+        .card-cadastro { background-color: #262626; border: none; border-radius: 8px; }
+        .btn-estudio { background-color: #800000; color: white; border: none; }
+        .btn-estudio:hover { background-color: #a00000; color: white; }
+        .grade-tabela th { background-color: #000000 !important; color: #ffc107 !important; text-align: center; }
+        .grade-tabela td { text-align: center; vertical-align: middle; min-width: 120px; font-size: 12px; }
+        .celula-ocupada { background-color: #800000 !important; color: white !important; font-weight: bold; border-radius: 4px; padding: 6px; }
+        .celula-livre { color: #555; font-style: italic; }
+        /* Bloco da tua aula: Destacado e chamativo */
+/* Bloco da SUA aula: Elegante, sutil e com contraste excelente */
+.aula-minha-card, .aula-outra-card {
+    display: inline-block; /* Faz o retângulo se ajustar ao tamanho do texto */
+    width: auto;
+    max-width: 90%; /* Não deixa esticar nas bordas da célula */
+    padding: 6px 12px; /* Espaçamento interno perfeito */
+    border-radius: 6px;
+    font-size: 0.85rem;
+    font-weight: 500;
+    text-align: center;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.2);
+}
+
+/* Sua aula: Elegante e na proporção certa */
+.aula-minha-card {
+    background-color: rgba(128, 0, 32, 0.25) !important;
+    color: #ffffff !important;
+    border-left: 4px solid #800020 !important;
+}
+
+/* Aula dos outros: Neutra e na proporção certa */
+.aula-outra-card {
+    background-color: rgba(255, 255, 255, 0.05) !important;
+    color: #888888 !important;
+    border-left: 4px solid #444444 !important;
+}
+
+/* Centraliza o card perfeitamente dentro da célula da tabela */
+.celula-ocupada {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 4px 0;
+}
+    </style>
+</head>
+<body>
+
+    <nav class="navbar navbar-expand-lg navbar-dark navbar-estudio py-1 px-3">
+        <div class="container-fluid d-flex align-items-center justify-content-between">
+            <a class="navbar-brand d-flex align-items-center p-0" href="/dashboard">
+                <img src="/static/img/logo.png" alt="Estúdio A" height="40" class="d-inline-block align-top" style="object-fit: contain;">
+            </a>
+            <a href="/dashboard" class="btn btn-outline-light btn-sm">Voltar ao Painel</a>
+        </div>
+    </nav>
+
+    <div class="container-fluid mt-4 px-4">
+        
+        {% if erro %}
+        <div class="alert alert-danger alert-dismissible fade show fw-bold mb-4" role="alert">
+            ⚠️ {{ erro }}
+        </div>
+        {% endif %}
+
+        <div class="row">
+            <div class="col-12 col-xl-3 mb-4">
+                <div class="card card-cadastro p-4">
+                    <h4 class="fw-bold mb-3 text-uppercase" style="color: #ffc107;">Agendar Aula</h4>
+                    <form action="/agenda" method="POST">
+                        
+                        <div class="mb-2">
+                            <label class="form-label text-light small">Aluno</label>
+                            <select class="form-select form-select-sm" name="id_aluno" required>
+                                <option value="">Selecione...</option>
+                                {% for al in alunos %}
+                                <option value="{{ al[0] }}">{{ al[1] }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+
+                        <div class="mb-3">
+    <label class="form-label fw-bold">Tipo de Agendamento</label>
+    <select name="tipo_aula" id="tipo_aula" class="form-select" onchange="toggleDataCampo()">
+        <option value="Fixa">Aula Fixa (Mensal)</option>
+        <option value="Recuperacao">Aula de Recuperação (Individual)</option>
+    </select>
+</div>
+
+<div class="mb-3 d-none" id="container_data_aula">
+    <label class="form-label fw-bold text-danger">Data da Recuperação</label>
+    <input type="date" name="data_aula" class="form-control">
+    <small class="text-muted">Esta aula sairá da grade automaticamente após esta data.</small>
+</div>
+
+                        <div class="mb-2">
+                            <label class="form-label text-light small">Professor</label>
+                            <select class="form-select form-select-sm" name="id_professor" required>
+                                <option value="">Selecione...</option>
+                                {% for p in professores %}
+                                <option value="{{ p[0] }}">{{ p[1] }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+
+                        <div class="mb-2">
+                            <label class="form-label text-light small">Sala Destino</label>
+                            <select class="form-select form-select-sm" name="id_sala" required>
+                                <option value="">Selecione...</option>
+                                {% for s in salas %}
+                                <option value="{{ s[0] }}" {% if s[0] == sala_selecionada %}selected{% endif %}>{{ s[1] }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+
+                        <div class="row mb-3">
+                            <div class="col">
+                                <label class="form-label text-light small">Dia</label>
+                                <select class="form-select form-select-sm" name="dia_semana" required>
+                                    {% for dia in dias_semana %}
+                                    <option value="{{ dia }}">{{ dia }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <div class="col">
+                                <label class="form-label text-light small">Horário</label>
+                                <input type="time" class="form-control form-control-sm" name="horario" required>
+                            </div>
+                        </div>
+
+                        <button type="submit" class="btn btn-estudio w-100 fw-bold btn-sm">CONFIRMAR HORÁRIO</button>
+                    </form>
+                </div>
+            </div>
+
+            <div class="col-12 col-xl-9">
+                <div class="p-3" style="background-color: #262626; border-radius: 8px;">
+                    
+                    <div class="d-flex align-items-center justify-content-between mb-3 flex-wrap gap-2">
+                        <h4 class="fw-bold text-uppercase m-0">Grade Semanal de Ocupação</h4>
+                        <div class="d-flex align-items-center gap-2">
+                            <label class="small text-muted text-nowrap">Visualizar Sala:</label>
+                            <select class="form-select form-select-sm bg-dark text-white border-secondary" id="seletorSala" onchange="mudarSala()">
+                                {% for s in salas %}
+                                <option value="{{ s[0] }}" {% if s[0] == sala_selecionada %}selected{% endif %}>{{ s[1] }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="table-responsive">
+                        <table class="table table-dark table-bordered grade-tabela align-middle mb-0">
+                            <thead>
+                                <tr>
+                                    <th style="width: 100px;">Horário</th>
+                                    {% for dia in dias_semana %}
+                                    <th>{{ dia }}</th>
+                                    {% endfor %}
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for hora in horarios %}
+                                <tr>
+                                    <td class="fw-bold bg-black text-warning text-center">{{ hora }}</td>
+                                    
+                                    {% for dia in dias_semana %}
+                                        <td>
+    {% set chave = (dia, hora) %}
+    {% if chave in mapa_agenda %}
+        <div class="celula-ocupada">
+            {{ mapa_agenda[chave]|safe }}  </div>
+    {% endif %}
+</td>
+                                    {% endfor %}
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function mudarSala() {
+            var idSala = document.getElementById('seletorSala').value;
+            window.location.href = '/agenda?sala_id=' + idSala;
+        }
+    </script>
+    <script>
+function toggleDataCampo() {
+    var tipo = document.getElementById('tipo_aula').value;
+    var containerData = document.getElementById('container_data_aula');
+    
+    if (tipo === 'Recuperacao') {
+        containerData.classList.remove('d-none'); // Mostra o campo de data
+    } else {
+        containerData.classList.add('d-none');    // Esconde o campo de data
+    }
+}
+</script>
+</body>
+</html>

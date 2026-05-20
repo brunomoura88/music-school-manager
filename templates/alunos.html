@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Estúdio A - Gerenciar Alunos</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css">
+    <style>
+        body { background-color: #1a1a1a; color: white; }
+        .navbar-estudio { background-color: #000000; border-bottom: 3px solid #800000; }
+        .card-cadastro { background-color: #262626; border: none; border-radius: 8px; }
+        .btn-estudio { background-color: #800000; color: white; border: none; }
+        .btn-estudio:hover { background-color: #a00000; color: white; }
+        .table-dark-custom { background-color: #262626; color: white; }
+    </style>
+</head>
+<body>
+
+    <nav class="navbar navbar-expand-lg navbar-dark navbar-estudio p-3">
+        <div class="container-fluid">
+            <span class="navbar-brand fw-bold">ESTÚDIO A - GERENCIAR ALUNOS</span>
+            <a href="/dashboard" class="btn btn-outline-light btn-sm">Voltar ao Painel</a>
+        </div>
+    </nav>
+
+    <div class="container mt-4">
+        <div class="row">
+            <div class="col-12 col-lg-4 mb-4">
+                <div class="card card-cadastro p-4">
+                    <h4 class="fw-bold mb-3 text-uppercase" style="color: #ffc107;">Novo Aluno</h4>
+                    <form action="/alunos" method="POST">
+                        <div class="mb-2">
+                            <label class="form-label text-light small">Nome Completo</label>
+                            <input type="text" class="form-control form-control-sm" name="nome" required>
+                        </div>
+                        <div class="mb-2">
+                            <label class="form-label text-light small">CPF ou RG</label>
+                            <input type="text" class="form-control form-control-sm" name="cpf_rg">
+                        </div>
+                        <div class="mb-2">
+                            <label class="form-label text-light small">Endereço</label>
+                            <input type="text" class="form-control form-control-sm" name="endereco">
+                        </div>
+                        <div class="row mb-2">
+                            <div class="col">
+                                <label class="form-label text-light small">Dia Vencimento</label>
+                                <input type="number" class="form-control form-control-sm" name="vencimento" min="1" max="31" placeholder="Ex: 10" required>
+                            </div>
+                            <div class="col">
+                                <label class="form-label text-light small">Valor Mensalidade</label>
+                                <input type="number" class="form-control form-control-sm" name="valor" step="0.01" value="220.00" required>
+                            </div>
+                        </div>
+                        <div class="mb-2">
+                            <label class="form-label text-light small">Disciplina</label>
+                            <select class="form-select form-select-sm" name="id_disciplina" required>
+                                <option value="">Selecione...</option>
+                                {% for d in disciplinas %}
+                                <option value="{{ d[0] }}">{{ d[1] }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label text-light small">Professor</label>
+                            <select class="form-select form-select-sm" name="id_professor" required>
+                                <option value="">Selecione...</option>
+                                {% for p in professores %}
+                                <option value="{{ p[0] }}">{{ p[1] }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <button type="submit" class="btn btn-estudio w-100 fw-bold btn-sm">CADASTRAR ALUNO</button>
+                    </form>
+                </div>
+            </div>
+
+            <div class="col-12 col-lg-8">
+                <div class="p-3" style="background-color: #262626; border-radius: 8px;">
+                    <h4 class="fw-bold mb-3 text-uppercase">Alunos Cadastrados</h4>
+                    <div class="table-responsive">
+                        <table class="table table-dark table-striped align-middle mb-0" style="font-size: 14px;">
+    <thead>
+        <tr>
+            <th>ID</th>
+            <th>Nome</th>
+            <th>Curso</th>
+            <th>Professor</th>
+            <th>Venc.</th>
+            <th>Valor</th>
+            <th>Ações</th> </tr>
+    </thead>
+    <tbody>
+        {% if not alunos %}
+        <tr>
+            <td colspan="7" class="text-center text-muted py-3">Nenhum aluno cadastrado ainda.</td>
+        </tr>
+        {% endif %}
+        {% for a in alunos %}
+            <tr>
+                <td>{{ a[0] }}</td>
+                <td class="fw-bold">{{ a[1] }}</td>
+                <td><span class="badge bg-secondary">{{ a[5] }}</span></td>
+                <td>{{ a[4] }}</td>
+                <td>Dia {{ a[2] }}</td>
+                <td>R$ {{ "%.2f"|format(a[3]) }}</td>
+                
+                <td class="text-nowrap align-middle">
+    <a href="/aluno/contrato/{{ a[0] }}" class="btn btn-warning btn-sm fw-bold me-1" target="_blank">
+        📄 Contrato
+    </a>
+    <a href="/aluno/editar/{{ a[0] }}" class="btn btn-primary btn-sm fw-bold me-1">
+        ✏️ Editar
+    </a>
+    <a href="/excluir_aluno/{{ a[0] }}" class="btn btn-danger btn-sm fw-bold" onclick="return confirm('Tem certeza?')">
+        Excluir
+    </a>
+</td>
+            </tr>
+            {% endfor %}
+    </tbody>
+</table>                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+</body>
+</html>

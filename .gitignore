@@ -1,0 +1,9 @@
+# Ignorar o banco de dados local com dados reais dos alunos
+estudio_a.db
+
+# Ignorar pastas de cache temporárias do Python
+__pycache__/
+*.pyc
+
+# Ignorar arquivos de configuração do próprio VS Code
+.vscode/

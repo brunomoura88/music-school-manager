@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <title>Contrato - {{ aluno[1] }}</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@v5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body { font-family: 'Arial', sans-serif; color: #333; line-height: 1.6; }
+        .contrato-container { max-width: 800px; margin: 0 auto; padding: 40px; }
+        .header-estudio { text-align: center; margin-bottom: 30px; border-bottom: 2px solid #800020; padding-bottom: 10px; }
+        .header-estudio h1 { color: #800020; font-weight: bold; letter-spacing: 2px; margin: 0; }
+        .header-estudio p { margin: 0; font-size: 12px; text-transform: uppercase; color: #666; }
+        .titulo-contrato { text-align: center; font-weight: bold; margin-bottom: 30px; font-size: 18px; text-transform: uppercase; }
+        .clausula { font-weight: bold; margin-top: 15px; }
+        .footer-contrato { text-align: center; font-size: 10px; color: #777; margin-top: 40px; border-top: 1px solid #ddd; padding-top: 10px; }
+        
+        @media print {
+            .no-print { display: none !important; }
+            body { background: white; color: black; }
+            .contrato-container { padding: 0; margin: 0; max-width: 100%; }
+            .page-break { page-break-before: always; margin-top: 40px; }
+        }
+    </style>
+</head>
+<body class="bg-light">
+
+    <div class="container text-center my-4 no-print">
+        <button onclick="window.print();" class="btn btn-success btn-lg px-5 shadow">🖨️ Imprimir Contrato</button>
+        <a href="/alunos" class="btn btn-secondary btn-lg ms-2">Voltar</a>
+    </div>
+
+    <div class="bg-white contrato-container shadow-sm mb-5">
+        
+        <div class="header-estudio">
+            <h1>ESTÚDIO A</h1>
+            <p>Aulas Práticas de Música</p>
+        </div>
+
+        <div class="titulo-contrato">
+            CONTRATO DE PRESTAÇÃO DE SERVIÇOS - AULAS DE MÚSICA
+        </div>
+
+        <p>Pelo presente instrumento particular de contrato de prestação de serviços de:</p>
+        
+        <table class="table table-bordered bg-light mb-4">
+            <tr>
+                <td width="30%"><strong>Aula de Música:</strong></td>
+                <td><span class="text-primary fw-bold">{{ aluno[3] }}</span></td>
+            </tr>
+            <tr>
+                <td><strong>Contratado - Nome:</strong></td>
+                <td>Bruno Moura - ESTÚDIO A</td>
+            </tr>
+            <tr>
+                <td><strong>CNPJ / CPF:</strong></td>
+                <td>012.548.640-59 (Estúdio A)</td>
+            </tr>
+            <tr>
+                <td><strong>Endereço:</strong></td>
+                <td>Rua Sepé, 2611, sala 302, Ed. The Office, Centro, Capão da Canoa/RS</td>
+            </tr>
+            <tr class="table-info">
+                <td><strong>Contratante (Aluno):</strong></td>
+                <td><span class="fw-bold text-uppercase">{{ aluno[1] }}</span></td>
+            </tr>
+            <tr>
+                <td><strong>CPF / RG do Aluno:</strong></td>
+                <td><span class="fw-bold">{{ aluno[5] if aluno[5] else '...........................................................' }}</span></td>
+            </tr>
+            <tr>
+                <td><strong>Endereço do Aluno:</strong></td>
+                <td><span class="fw-bold">{{ aluno[6] if aluno[6] else '...........................................................' }}</span></td>
+            </tr>
+        </table>
+
+        <h5 class="titulo-secao fw-bold border-bottom pb-1">DO OBJETO DO CONTRATO</h5>
+        <p><span class="clausula">Cláusula 1ª</span> - O presente contrato tem como objetivo a prestação de aula de música.</p>
+        <p><strong>Parágrafo ÚNICO.</strong> O CONTRATADO se responsabiliza em fornecer uma aula por semana, com duração de 50 minutos a uma hora.</p>
+
+        <h5 class="titulo-secao fw-bold border-bottom pb-1 mt-4">DO VALOR E DOS PAGAMENTOS</h5>
+        <p><span class="clausula">Cláusula 2ª</span> - Em caráter de pagamento, será cobrado por mês o valor de <span class="fw-bold text-success">R$ {{ "%.2f"|format(aluno[4]) }}</span> (e não por aula).</p>
+        <p><span class="clausula">Cláusula 3ª</span> - Falta sem justificativa prévia de 24h será contado como aula normal.</p>
+        <p><strong>Parágrafo ÚNICO:</strong> Caso haja justificativa terá o contratante direito a recuperar essa aula, com limite de uma falta por mês.</p>
+        <p><span class="clausula">Cláusula 4º</span> - Não haverá aulas nos feriados, podendo ser discutido entre professor e aluno.</p>
+
+        <div class="footer-contrato">
+            ESCOLA DE MÚSICA ESTÚDIO A - RUA SEPÉ, Nº 2611, SALA 302, CENTRO DE CAPÃO DA CANOA/RS - @ESCOLAESTUDIOA
+        </div>
+
+        <div class="page-break"></div>
+
+        <div class="header-estudio mt-4">
+            <h1>ESTÚDIO A</h1>
+            <p>Aulas Práticas de Música</p>
+        </div>
+
+        <p><span class="clausula">Cláusula 5ª</span> - O vencimento da mensalidade será sempre no <strong>dia {{ aluno[7] if aluno[7] else '01' }}</strong> de cada mês (com primeiro pagamento no dia que começou as aulas).</p>
+        <p><strong>Parágrafo ÚNICO:</strong> Em caso de atraso o contratado reserva-se ao Direito de cobrar 10% de multa do valor da mensalidade, e 1% de juro ao mês.</p>
+
+        <h5 class="titulo-secao fw-bold border-bottom pb-1 mt-4">DA AUTORIZAÇÃO DO USO DE IMAGEM</h5>
+        <p><span class="clausula">Cláusula 6ª</span> - O contratante autoriza o uso de suas imagens e voz para todo e quaisquer eventual postagem em seus meios de comunicação, tais como redes sociais, site e portfólio.</p>
+
+        <h5 class="titulo-secao fw-bold border-bottom pb-1 mt-4">DO RECESSO DE FINAL DE ANO</h5>
+        <p><span class="clausula">Cláusula 7ª</span> - Haverá férias coletivas na Escola de 7 dias no final de JULHO e DEZEMBRO.</p>
+
+        <h5 class="titulo-secao fw-bold border-bottom pb-1 mt-4">DA VALIDADE DESTE OBJETO</h5>
+        <p>O presente contrato poderá ser rescindido a qualquer tempo, desde que com aviso prévio de 30 dias.</p>
+
+        <h5 class="titulo-secao fw-bold border-bottom pb-1 mt-4">DO FORO</h5>
+        <p><span class="clausula">Cláusula 8ª</span> - As partes elegem o foro da Comarca de Capão da Canoa/RS para dirimir quaisquer dúvidas sobre o presente contrato.</p>
+
+        <p class="text-end my-5">Capão da Canoa, <span id="data_atual">______ de __________________ de 2026</span>.</p>
+
+        <div class="row text-center" style="margin-top: 80px;">
+            <div class="col-6">
+                <div style="border-top: 1px solid #333; margin: 0 20px; padding-top: 5px;">
+                    <strong>CONTRATADO</strong><br>
+                    Estúdio A - Música Prática
+                </div>
+            </div>
+            <div class="col-6">
+                <div style="border-top: 1px solid #333; margin: 0 20px; padding-top: 5px;">
+                    <strong>CONTRATANTE</strong><br>
+                    {{ aluno[1] }}
+                </div>
+            </div>
+        </div>
+
+        <div class="footer-contrato" style="margin-top: 100px;">
+            ESCOLA DE MÚSICA ESTÚDIO A - RUA SEPÉ, Nº 2611, SALA 302, CENTRO DE CAPÃO DA CANOA/RS - @ESCOLAESTUDIOA
+        </div>
+
+    </div>
+
+    <script>
+        const meses = ["Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"];
+        const hoje = new Date();
+        const dia = String(hoje.getDate()).padStart(2, '0');
+        const mes = meses[hoje.getMonth()];
+        const ano = hoje.getFullYear();
+        document.getElementById('data_atual').innerHTML = `${dia} de ${mes} de ${ano}`;
+    </script>
+
+</body>
+</html>
