@@ -108,7 +108,6 @@ def login():
         conn = None
         cursor = None
         try:
-            # CAPTURA INTELIGENTE: Aceita tanto se o formulário HTML usar 'cpf' quanto se usar 'login'
             usuario_input = request.form.get('cpf')
             if not usuario_input:
                 usuario_input = request.form.get('login')
@@ -125,13 +124,19 @@ def login():
             professor = cursor.fetchone()
 
             if professor:
+                # Extração Blindada: Funciona para Dicionário (Postgres), Row (SQLite) ou Tupla
                 if isinstance(professor, dict):
+                    id_prof = professor.get('id')
+                    nome_prof = professor.get('nome')
+                    senha_banco = professor.get('senha')
+                elif hasattr(professor, 'keys'): # Se for o objeto Row do SQLite
                     id_prof = professor['id']
                     nome_prof = professor['nome']
                     senha_banco = professor['senha']
-                else:
+                else: # Se por acaso voltar como tupla pura
                     id_prof, nome_prof, senha_banco = professor
                 
+                # Agora sim o teste da senha acontece sem desvios
                 if senha_banco == senha_input or (senha_banco and senha_banco.startswith(('scrypt:', 'pbkdf2:')) and check_password_hash(senha_banco, senha_input)):
                     
                     if senha_banco == senha_input:
@@ -150,7 +155,9 @@ def login():
                 erro = f"Usuário '{usuario_input}' não encontrado."
                 
         except Exception as e:
-            erro = f"Erro no banco: {str(e)}"
+            # Se der qualquer erro no desempacotamento, nós vamos forçar a exibição no terminal do Render
+            print(f"❌ ERRO CRÍTICO NO FLUXO DE LOGIN: {str(e)}")
+            erro = f"Erro no processamento interno: {str(e)}"
         finally:
             if cursor:
                 cursor.close()
