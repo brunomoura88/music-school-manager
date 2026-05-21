@@ -622,7 +622,7 @@ def editar_aluno(id):
         conn.close()
         return "Aluno não encontrado", 404
 
-    # Monta o dicionário de forma segura, aceitando tanto DictRow quanto Tupla pura
+    # Monta todo nosso o dicionário de forma segura, aceitando tanto DictRow quanto Tupla pura
     if hasattr(res, "get"):  # Se for dicionário
         aluno_dados = {
             "id": res.get("id"),
