@@ -272,14 +272,6 @@ def aplicar_migracoes():
 def login():
     conn = obter_conexao()
     cursor = conn.cursor()
-    
-    # TRUQUE DE INFRAESTRUTURA: Cria as colunas de login e senha nos professores caso não existam
-    try:
-        cursor.execute("ALTER TABLE professores ADD COLUMN login TEXT;")
-        cursor.execute("ALTER TABLE professores ADD COLUMN senha TEXT;")
-        conn.commit()
-    except Exception:
-        pass # Se já existirem, ignora e segue
 
     erro = None
 
