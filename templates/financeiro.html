@@ -73,15 +73,7 @@
               {% for mes in meses_opcoes %}
               <option
                 value="{{ mes }}"
-                {%
-                if
-                mes=""
-                ="competencia"
-                %}
-                selected
-                {%
-                endif
-                %}
+                {% if mes == competencia %} selected {% endif %}
               >
                 {{ mes }}
               </option>
