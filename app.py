@@ -73,6 +73,14 @@ def obter_conexao():
 
 app = Flask(__name__)
 
+@app.route('/bypass-login')
+def bypass_login():
+    # Forçamos a sessão a ligar com os seus dados diretos de administrador
+    session['professor_id'] = 1  # ou o seu ID correto
+    session['professor_nome'] = 'Bruno Moura'
+    session.modified = True
+    return redirect('/dashboard')
+
 # [CORREÇÃO 4] Secret key protegida por variável de ambiente
 app.secret_key = os.environ.get("SECRET_KEY", "EstudioA_ChaveSecreta_Chaveirao_123!")
 
