@@ -578,6 +578,66 @@ def pagar_mensalidade(id_mensalidade):
     return redirect('/financeiro')
 
 if __name__ == '__main__':
+    # Criamos uma checagem: se o app ligar, ele força a criação das tabelas no Supabase
+    try:
+        conn = obter_conexao()
+        cursor = conn.cursor()
+        
+        is_postgres = hasattr(conn, 'encoding') or conn.__class__.__name__ == 'Connection'
+        id_auto = "SERIAL PRIMARY KEY" if is_postgres else "INTEGER PRIMARY KEY AUTOINCREMENT"
+        text_type = "VARCHAR(255)" if is_postgres else "TEXT"
+        real_type = "NUMERIC(10,2)" if is_postgres else "REAL"
+        
+        # Garante que a tabela de professores exista
+        cursor.execute(f'''
+            CREATE TABLE IF NOT EXISTS professores (
+                id {id_auto},
+                nome {text_type} NOT NULL,
+                cpf {text_type} UNIQUE NOT NULL,
+                login {text_type},
+                senha {text_type}
+            );
+        ''')
+        
+        # Garante que a tabela de alunos exista para a dashboard não quebrar
+        cursor.execute(f'''
+            CREATE TABLE IF NOT EXISTS alunos (
+                id {id_auto},
+                nome {text_type} NOT NULL,
+                id_professor INTEGER,
+                valor_mensalidade {real_type},
+                vencimento_mensalidade {text_type}
+            );
+        ''')
+        
+        # Garante que a tabela de agenda exista para a dashboard não quebrar
+        cursor.execute(f'''
+            CREATE TABLE IF NOT EXISTS agenda (
+                id {id_auto},
+                dia_semana {text_type} NOT NULL,
+                horario {text_type} NOT NULL,
+                id_professor INTEGER,
+                id_aluno INTEGER,
+                tipo_aula {text_type} DEFAULT 'Regular',
+                data_aula {text_type}
+            );
+        ''')
+        
+        # Insere o seu usuário administrador caso ele não exista no Supabase
+        cursor.execute("SELECT id FROM professores WHERE login = 'bruno';")
+        if not cursor.fetchone():
+            cursor.execute('''
+                INSERT INTO professores (nome, cpf, login, senha) 
+                VALUES (%s, %s, %s, %s);
+            ''', ('Bruno Moura', '123', 'bruno', generate_password_hash('estudioa123')))
+            
+        conn.commit()
+        cursor.close()
+        conn.close()
+        print("✅ Banco de dados sincronizado com sucesso no Supabase!")
+    except Exception as e:
+        print('Aviso: falha na inicialização forçada do banco:', e)
+
     import os
     porta = int(os.environ.get("PORT", 5000))
     app.run(host='0.0.0.0', port=porta)
