@@ -300,7 +300,6 @@ def login():
             professor = cursor.fetchone()
 
             if professor:
-                # Suporte duplo: funciona se 'professor' for dicionário ou tupla
                 if isinstance(professor, dict):
                     id_prof = professor['id']
                     nome_prof = professor['nome']
@@ -308,37 +307,32 @@ def login():
                 else:
                     id_prof, nome_prof, senha_banco = professor
                 
-                # --- TESTE DE SEGURANÇA CONTRA CRYPTO TRAVANDO ---
-                try:
-                    # Se a senha for igual em texto limpo
+                # Validação da senha
+                if senha_banco == senha_input or (senha_banco and senha_banco.startswith(('scrypt:', 'pbkdf2:')) and check_password_hash(senha_banco, senha_input)):
+                    
                     if senha_banco == senha_input:
                         senha_com_hash = generate_password_hash(senha_input)
                         cursor.execute("UPDATE professores SET senha = %s WHERE id = %s;", (senha_com_hash, id_prof))
                         conn.commit()
-                        
-                        session['professor_id'] = id_prof
-                        session['professor_nome'] = nome_prof
-                        cursor.close()
-                        conn.close()
-                        return redirect('/dashboard')
+
+                    # --- SEGURANÇA MÁXIMA DA SESSÃO ---
+                    # Forçamos o ID a virar String para garantir compatibilidade total de Cookies no Render
+                    session['professor_id'] = str(id_prof)
+                    session['professor_nome'] = str(nome_prof)
                     
-                    # Se for validação por Hash
-                    elif senha_banco and check_password_hash(senha_banco, senha_input):
-                        session['professor_id'] = id_prof
-                        session['professor_nome'] = nome_prof
-                        cursor.close()
-                        conn.close()
-                        return redirect('/dashboard')
-                    else:
-                        erro = "Senha incorreta!"
-                except Exception as crypto_err:
-                    erro = f"Erro na checagem de criptografia de senha: {str(crypto_err)}"
+                    # Força o Flask a gravar os dados na memória imediatamente
+                    session.modified = True 
+                    
+                    cursor.close()
+                    conn.close()
+                    return redirect('/dashboard')
+                else:
+                    erro = "Senha incorreta!"
             else:
                 erro = "Professor não encontrado!"
                 
         except Exception as e:
-            # Captura qualquer erro de banco, conexão ou sintaxe SQL
-            erro = f"Erro no processamento do banco: {str(e)}"
+            erro = f"Erro no banco de dados: {str(e)}"
         finally:
             if cursor:
                 cursor.close()
@@ -346,6 +340,7 @@ def login():
                 conn.close()
 
     return render_template('login.html', erro=erro)
+
 @app.route('/logout')
 def logout():
     # Limpa o carimbo da sessão, deslogando o usuário
