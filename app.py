@@ -656,13 +656,13 @@ def agenda():
 
     data_hoje = datetime.now().strftime("%Y-%m-%d")
 
-    # SQL Ajustado com apelidos explícitos (AS) para evitar chaves duplicadas com o nome 'nome'
+    # SQL Blindado com LEFT JOIN para aceitar qualquer cenário de dados vazios no Supabase
     cursor.execute(
         """
         SELECT age.dia_semana, age.horario, al.nome as al_nome, p.nome as pf_nome, d.nome as dp_nome, age.tipo_aula
         FROM agenda age
-        JOIN alunos al ON age.id_aluno = al.id
-        JOIN professores p ON age.id_professor = p.id
+        LEFT JOIN alunos al ON age.id_aluno = al.id
+        LEFT JOIN professores p ON age.id_professor = p.id
         LEFT JOIN disciplinas d ON al.id_disciplina = d.id
         WHERE COALESCE(age.id_sala, 1) = %s
         AND (age.tipo_aula = 'Fixa' OR (age.tipo_aula = 'Recuperacao' AND age.data_aula >= %s));
@@ -723,6 +723,28 @@ def agenda():
         if not eh_minha_aula:
             texto_aula += f" <br><small class='text-muted'>Prof. {num_prof}</small>"
 
+        mapa_agenda[(dia, hora_formatada)] = (
+            f"<div class='{classe_destaque}'>{texto_aula}</div>"
+        )
+
+    dias_semana = ["Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado"]
+    horarios_grade = [f"{h:02d}:00" for h in range(8, 22)]
+
+    cursor.close()
+    conn.close()
+    return render_template(
+        "agenda.html",
+        salas=all_salas,
+        professores=all_professores,
+        alunos=all_alunos,
+        mapa_agenda=mapa_agenda,
+        dias_semana=dias_semana,
+        horarios=horarios_grade,
+        sala_selecionada=sala_selecionada,
+        erro=erro,
+        id_professor_logado=session["professor_id"],
+        nome_professor=session["professor_nome"],
+    )
 
 @app.route("/baixar_pagamento/<int:id>/<int:status_pago>")
 def baixar_pagamento(id, status_pago):
