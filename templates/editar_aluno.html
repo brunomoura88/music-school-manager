@@ -20,31 +20,31 @@
         <div class="painel-cadastro shadow-lg">
             <h3 class="text-warning mb-4"><i class="bi bi-pencil-square me-2"></i>EDITAR ALUNO</h3>
             
-            <form action="/aluno/editar/{{ aluno[0] }}" method="POST">
+            <form action="/aluno/editar/{{ aluno.id }}" method="POST">
                 
                 <div class="mb-3">
                     <label class="form-label">Nome Completo</label>
-                    <input type="text" name="nome" class="form-control" value="{{ aluno[1] }}" required>
+                    <input type="text" name="nome" class="form-control" value="{{ aluno.nome }}" required>
                 </div>
 
                 <div class="mb-3">
                     <label class="form-label">CPF ou RG</label>
-                    <input type="text" name="cpf" class="form-control" value="{{ aluno[2] if aluno[2] else '' }}">
+                    <input type="text" name="cpf" class="form-control" value="{{ aluno.cpf_rg if aluno.cpf_rg else '' }}">
                 </div>
 
                 <div class="mb-3">
                     <label class="form-label">Endereço</label>
-                    <input type="text" name="endereco" class="form-control" value="{{ aluno[3] if aluno[3] else '' }}">
+                    <input type="text" name="endereco" class="form-control" value="{{ aluno.endereco if aluno.endereco else '' }}">
                 </div>
 
                 <div class="row">
                     <div class="col-md-6 mb-3">
                         <label class="form-label">Dia Vencimento</label>
-                        <input type="number" name="dia_vencimento" class="form-control" value="{{ aluno[4] if aluno[4] else '' }}" placeholder="Ex: 10">
+                        <input type="number" name="dia_vencimento" class="form-control" value="{{ aluno.vencimento_mensalidade if aluno.vencimento_mensalidade else '' }}" placeholder="Ex: 10">
                     </div>
                     <div class="col-md-6 mb-3">
                         <label class="form-label">Valor Mensalidade</label>
-                        <input type="text" name="valor" class="form-control" value="{{ aluno[5] }}" required>
+                        <input type="text" name="valor" class="form-control" value="{{ aluno.valor_mensalidade }}" required>
                     </div>
                 </div>
 
@@ -52,7 +52,7 @@
                     <label class="form-label">Disciplina</label>
                     <select name="id_disciplina" class="form-select" required>
                         {% for d in disciplinas %}
-                            <option value="{{ d[0] }}" {% if d[0] == aluno[6] %} selected {% endif %}>{{ d[1] }}</option>
+                            <option value="{{ d.id }}" {% if d.id|string == aluno.id_disciplina|string %} selected {% endif %}>{{ d.nome }}</option>
                         {% endfor %}
                     </select>
                 </div>
@@ -61,7 +61,7 @@
                     <label class="form-label">Professor</label>
                     <select name="id_professor" class="form-select" required>
                         {% for p in professores %}
-                            <option value="{{ p[0] }}" {% if p[0] == aluno[7] %} selected {% endif %}>{{ p[1] }}</option>
+                            <option value="{{ p.id }}" {% if p.id|string == aluno.id_professor|string %} selected {% endif %}>{{ p.nome }}</option>
                         {% endfor %}
                     </select>
                 </div>
