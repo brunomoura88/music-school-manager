@@ -100,6 +100,50 @@ def bypass_login():
     session.modified = True
     return redirect('/dashboard')
 
+@app.route('/reset-professores-estudioa')
+def reset_professores():
+    conn = obter_conexao()
+    cursor = conn.cursor()
+    
+    try:
+        # 1. Limpa a tabela de professores por completo
+        cursor.execute("DROP TABLE IF EXISTS professores CASCADE;")
+        conn.commit()
+        
+        # 2. Recria a tabela com a estrutura correta do Postgres
+        is_postgres = hasattr(conn, 'encoding') or conn.__class__.__name__ == 'Connection'
+        id_auto = "SERIAL PRIMARY KEY" if is_postgres else "INTEGER PRIMARY KEY AUTOINCREMENT"
+        
+        cursor.execute(f'''
+            CREATE TABLE professores (
+                id {id_auto},
+                nome VARCHAR(255) NOT NULL,
+                cpf VARCHAR(255) UNIQUE NOT NULL,
+                login VARCHAR(255),
+                senha VARCHAR(255)
+            );
+        ''')
+        conn.commit()
+        
+        # 3. Gera o hash da senha fresco, de dentro do próprio Render
+        senha_criptografada = generate_password_hash('estudioa123')
+        
+        # 4. Insere o seu usuário administrador limpo
+        cursor.execute('''
+            INSERT INTO professores (nome, cpf, login, senha) 
+            VALUES (%s, %s, %s, %s);
+        ''', ('Bruno Moura', '123', 'bruno', senha_criptografada))
+        conn.commit()
+        
+        mensagem = "✅ Tabela de professores resetada com sucesso! Usuário 'bruno' cadastrado com a senha 'estudioa123'."
+    except Exception as e:
+        mensagem = f"❌ Erro ao resetar: {str(e)}"
+    finally:
+        cursor.close()
+        conn.close()
+        
+    return f"<h3>{mensagem}</h3><br><a href='/'>Ir para o Login</a>"
+
 @app.route('/', methods=['GET', 'POST'])
 def login():
     erro = None
