@@ -276,7 +276,7 @@ def login():
     erro = None
 
     if request.method == 'POST':
-        usuario_input = request.form.get('cpf') # mantemos o name do input antigo para não quebrar o HTML
+        usuario_input = request.form.get('cpf') 
         senha_input = request.form.get('senha')
 
         cursor.execute("SELECT id, nome, senha FROM professores WHERE login = %s OR cpf = %s;", (usuario_input, usuario_input))
@@ -285,10 +285,8 @@ def login():
         if professor:
             id_prof, nome_prof, senha_banco = professor
             
-            # Ajuste de Segurança: se a senha no banco for texto limpo igual à digitada, ou se bater com o hash
             if senha_banco == senha_input or (senha_banco and senha_banco.startswith(('scrypt:', 'pbkdf2:')) and check_password_hash(senha_banco, senha_input)):
                 
-                # Se a senha antiga era texto limpo, vamos atualizá-la automaticamente para hash agora mesmo!
                 if senha_banco == senha_input:
                     senha_com_hash = generate_password_hash(senha_input)
                     cursor.execute("UPDATE professores SET senha = %s WHERE id = %s;", (senha_com_hash, id_prof))
@@ -297,6 +295,9 @@ def login():
                 # CRIANDO O CARIMBO DA SESSÃO
                 session['professor_id'] = id_prof
                 session['professor_nome'] = nome_prof
+                
+                # FECHANDO OS DOIS ANTES DE REDIRECIONAR (Crucial para o Postgres)
+                cursor.close()
                 conn.close()
                 return redirect('/dashboard')
             else:
@@ -304,6 +305,8 @@ def login():
         else:
             erro = "Professor não encontrado!"
 
+    # SE CHEGOU AQUI (SEJA GET OU POST COM ERRO), FECHA TUDO COM SEGURANÇA
+    cursor.close()
     conn.close()
     return render_template('login.html', erro=erro)
 # ROTA DE LOGOUT: Para o professor sair com segurança e apagar o carimbo
