@@ -361,15 +361,19 @@ def dashboard():
 
     # --- 1. CONTAR ALUNOS ATIVOS ---
     if nome_logado == 'Bruno Moura':
-        # Você vê o total de todos os alunos da escola
-        cursor.execute("SELECT COUNT(*) FROM alunos;")
+        cursor.execute("SELECT COUNT(*) AS total FROM alunos;")
     else:
-        # Professores comuns só vêem a contagem dos seus próprios alunos
-        cursor.execute("SELECT COUNT(*) FROM alunos WHERE id_professor = %s;", (id_logado,))
-    total_alunos = cursor.fetchone()[0]
+        cursor.execute("SELECT COUNT(*) AS total FROM alunos WHERE id_professor = %s;", (id_logado,))
+    
+    resultado_alunos = cursor.fetchone()
+    
+    # Extração Inteligente: Trata Dicionário (Postgres) ou Tupla (SQLite)
+    if isinstance(resultado_alunos, dict):
+        total_alunos = resultado_alunos['total']
+    else:
+        total_alunos = resultado_alunos[0] if resultado_alunos else 0
 
     # --- 2. CONTAR AULAS DE HOJE ---
-    # Mapeamento dos dias para bater com o formato de texto que você usa na agenda
     dias_semana_pt = {
         0: 'Segunda', 1: 'Terça', 2: 'Quarta',
         3: 'Quinta', 4: 'Sexta', 5: 'Sábado', 6: 'Domingo'
@@ -378,13 +382,18 @@ def dashboard():
     dia_atual_pt = dias_semana_pt[dia_atual_num]
 
     if nome_logado == 'Bruno Moura':
-        # Buscamos na tabela AGENDA quantas aulas estão marcadas para hoje na escola inteira
-        cursor.execute("SELECT COUNT(*) FROM agenda WHERE dia_semana = %s;", (dia_atual_pt,))
+        cursor.execute("SELECT COUNT(*) AS total FROM agenda WHERE dia_semana = %s;", (dia_atual_pt,))
     else:
-        # Professores comuns vêem quantas aulas eles têm na AGENDA hoje
-        cursor.execute("SELECT COUNT(*) FROM agenda WHERE dia_semana = %s AND id_professor = %s;", (dia_atual_pt, id_logado))
-    aulas_hoje = cursor.fetchone()[0]
+        cursor.execute("SELECT COUNT(*) AS total FROM agenda WHERE dia_semana = %s AND id_professor = %s;", (dia_atual_pt, id_logado))
+        
+    resultado_aulas = cursor.fetchone()
+    
+    if isinstance(resultado_aulas, dict):
+        aulas_hoje = resultado_aulas['total']
+    else:
+        aulas_hoje = resultado_aulas[0] if resultado_aulas else 0
 
+    cursor.close()
     conn.close()
 
     # --- 3. DEFINIR MÊS/ANO ATUAL ---
@@ -396,7 +405,6 @@ def dashboard():
     ano_atual = datetime.now().year
     competencia_atual = f"{mes_atual}/{ano_atual}"
 
-    # Retorna o template passando os dados reais descobertos
     return render_template(
         'dashboard.html', 
         nome_professor=nome_logado,
@@ -404,7 +412,6 @@ def dashboard():
         aulas_hoje=aulas_hoje,
         competencia=competencia_atual
     )
-
 # ==========================================
 # ROTAS DE ALUNOS (COM EXCLUSÃO)
 # ==========================================
