@@ -76,10 +76,15 @@ app = Flask(__name__)
 # DEFINA UMA CHAVE FIXA E FORTE PARA AS SESSÕES NÃO CAÍREM NO RENDER
 app.secret_key = 'EstudioA_ChaveSecreta_Chaveirao_123!'
 
-# Se houver configurações de cookies de sessão, garanta que estejam assim para a nuvem:
-app.config['SESSION_COOKIE_SECURE'] = True  # Garante funcionamento em HTTPS (Render)
+# --- AJUSTE INTELIGENTE DE SESSÃO PARA O RENDER ---
+# Removemos o SESSION_COOKIE_SECURE fixo para o Proxy do Render não bloquear o cookie
 app.config['SESSION_COOKIE_HTTPONLY'] = True
 app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
+
+# Se estiver no Render, confiamos nos cabeçalhos de Proxy HTTPS deles
+if os.environ.get("DATABASE_URL"):
+    from werkzeug.middleware.proxy_fix import ProxyFix
+    app.wsgi_app = ProxyFix(app.wsgi_app, x_proto=1, x_host=1)
 
 # === RECRIADA A FUNÇÃO CORRETA PARA INICIALIZAR O BANCO ===
 def init_db():
