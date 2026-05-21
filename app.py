@@ -272,40 +272,50 @@ def aplicar_migracoes():
 def login():
     conn = obter_conexao()
     cursor = conn.cursor()
-
     erro = None
 
     if request.method == 'POST':
-        usuario_input = request.form.get('cpf') 
-        senha_input = request.form.get('senha')
+        try:
+            usuario_input = request.form.get('cpf') 
+            senha_input = request.form.get('senha')
 
-        cursor.execute("SELECT id, nome, senha FROM professores WHERE login = %s OR cpf = %s;", (usuario_input, usuario_input))
-        professor = cursor.fetchone()
+            cursor.execute("SELECT id, nome, senha FROM professores WHERE login = %s OR cpf = %s;", (usuario_input, usuario_input))
+            professor = cursor.fetchone()
 
-        if professor:
-            id_prof, nome_prof, senha_banco = professor
-            
-            if senha_banco == senha_input or (senha_banco and senha_banco.startswith(('scrypt:', 'pbkdf2:')) and check_password_hash(senha_banco, senha_input)):
+            if professor:
+                # Se o dict_row estiver ativo, 'professor' é um dicionário, não uma tupla!
+                # Vamos extrair os dados de forma segura que aceita tanto dicionário quanto tupla:
+                if isinstance(professor, dict):
+                    id_prof = professor['id']
+                    nome_prof = professor['nome']
+                    senha_banco = professor['senha']
+                else:
+                    id_prof, nome_prof, senha_banco = professor
                 
-                if senha_banco == senha_input:
-                    senha_com_hash = generate_password_hash(senha_input)
-                    cursor.execute("UPDATE professores SET senha = %s WHERE id = %s;", (senha_com_hash, id_prof))
-                    conn.commit()
+                # Validação da senha
+                if senha_banco == senha_input or (senha_banco and senha_banco.startswith(('scrypt:', 'pbkdf2:')) and check_password_hash(senha_banco, senha_input)):
+                    
+                    if senha_banco == senha_input:
+                        senha_com_hash = generate_password_hash(senha_input)
+                        cursor.execute("UPDATE professores SET senha = %s WHERE id = %s;", (senha_com_hash, id_prof))
+                        conn.commit()
 
-                # CRIANDO O CARIMBO DA SESSÃO
-                session['professor_id'] = id_prof
-                session['professor_nome'] = nome_prof
-                
-                # FECHANDO OS DOIS ANTES DE REDIRECIONAR (Crucial para o Postgres)
-                cursor.close()
-                conn.close()
-                return redirect('/dashboard')
+                    session['professor_id'] = id_prof
+                    session['professor_nome'] = nome_prof
+                    
+                    cursor.close()
+                    conn.close()
+                    return redirect('/dashboard')
+                else:
+                    erro = "Senha incorreta!"
             else:
-                erro = "Senha incorreta!"
-        else:
-            erro = "Professor não encontrado!"
+                erro = "Professor não encontrado!"
+                
+        except Exception as e:
+            # SE ALGO QUEBRAR, IMPRIME NO LOG DO RENDER E MOSTRA NA TELA
+            print(f"--- ERRO CRÍTICO NO LOGIN: {str(e)} ---")
+            erro = f"Erro interno do servidor: {str(e)}"
 
-    # SE CHEGOU AQUI (SEJA GET OU POST COM ERRO), FECHA TUDO COM SEGURANÇA
     cursor.close()
     conn.close()
     return render_template('login.html', erro=erro)
