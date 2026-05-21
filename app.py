@@ -107,11 +107,11 @@ def bypass_login():
     return redirect("/dashboard")
 
 
-@app.route('/reset-professores-estudioa')
+@app.route("/reset-professores-estudioa")
 def reset_professores():
     conn = obter_conexao()
     cursor = conn.cursor()
-    
+
     try:
         # 1. Limpa as tabelas antigas para evitar conflitos de colunas ou lixo
         cursor.execute("DROP TABLE IF EXISTS professores;")
@@ -121,14 +121,18 @@ def reset_professores():
         cursor.execute("DROP TABLE IF EXISTS salas;")
         cursor.execute("DROP TABLE IF EXISTS mensalidades;")
         conn.commit()
-        
-        is_postgres = hasattr(conn, 'encoding') or conn.__class__.__name__ == 'Connection'
-        id_auto = "SERIAL PRIMARY KEY" if is_postgres else "INTEGER PRIMARY KEY AUTOINCREMENT"
+
+        is_postgres = (
+            hasattr(conn, "encoding") or conn.__class__.__name__ == "Connection"
+        )
+        id_auto = (
+            "SERIAL PRIMARY KEY" if is_postgres else "INTEGER PRIMARY KEY AUTOINCREMENT"
+        )
         text_type = "VARCHAR(255)" if is_postgres else "TEXT"
         real_type = "NUMERIC(10,2)" if is_postgres else "REAL"
-        
+
         # 2. Criação da Tabela de Professores
-        cursor.execute(f'''
+        cursor.execute(f"""
             CREATE TABLE professores (
                 id {id_auto},
                 nome {text_type} NOT NULL,
@@ -136,14 +140,18 @@ def reset_professores():
                 login {text_type} UNIQUE NOT NULL,
                 senha {text_type} NOT NULL
             );
-        ''')
-        
+        """)
+
         # 3. Criação da Tabela de Disciplinas e Salas
-        cursor.execute(f"CREATE TABLE disciplinas (id {id_auto}, nome {text_type} UNIQUE NOT NULL);")
-        cursor.execute(f"CREATE TABLE salas (id {id_auto}, nome {text_type} UNIQUE NOT NULL);")
-        
+        cursor.execute(
+            f"CREATE TABLE disciplinas (id {id_auto}, nome {text_type} UNIQUE NOT NULL);"
+        )
+        cursor.execute(
+            f"CREATE TABLE salas (id {id_auto}, nome {text_type} UNIQUE NOT NULL);"
+        )
+
         # 4. Criação da Tabela de Alunos (Essencial para a Dashboard)
-        cursor.execute(f'''
+        cursor.execute(f"""
             CREATE TABLE alunos (
                 id {id_auto},
                 nome {text_type} NOT NULL,
@@ -153,10 +161,10 @@ def reset_professores():
                 id_disciplina INTEGER,
                 id_professor INTEGER
             );
-        ''')
-        
+        """)
+
         # 5. Criação da Tabela de Agenda (Essencial para a Dashboard)
-        cursor.execute(f'''
+        cursor.execute(f"""
             CREATE TABLE agenda (
                 id {id_auto},
                 dia_semana {text_type} NOT NULL,
@@ -166,34 +174,37 @@ def reset_professores():
                 tipo_aula {text_type} DEFAULT 'Regular',
                 data_aula {text_type}
             );
-        ''')
-        
+        """)
+
         # 6. Alimenta os dados iniciais dos professores com senhas criptografadas com segurança
-        senha_padrao = generate_password_hash('estudioa123')
-        
+        senha_padrao = generate_password_hash("estudioa123")
+
         professores_iniciais = [
-            ('Bruno Moura', '123', 'bruno', senha_padrao),
-            ('Bruno Mota', '456', 'brunomota', senha_padrao),
-            ('Raphael Russowsky', '789', 'raphael', senha_padrao),
-            ('Guilherme Martins', '101', 'guilherme', senha_padrao),
-            ('Beatriz Ribeiro', '202', 'beatriz', senha_padrao)
+            ("Bruno Moura", "123", "bruno", senha_padrao),
+            ("Bruno Mota", "456", "brunomota", senha_padrao),
+            ("Raphael Russowsky", "789", "raphael", senha_padrao),
+            ("Guilherme Martins", "101", "guilherme", senha_padrao),
+            ("Beatriz Ribeiro", "202", "beatriz", senha_padrao),
         ]
-        
-        cursor.executemany('''
+
+        cursor.executemany(
+            """
             INSERT INTO professores (nome, cpf, login, senha) 
             VALUES (%s, %s, %s, %s);
-        ''', professores_iniciais)
-        
+        """,
+            professores_iniciais,
+        )
+
         # Popula as disciplinas da escola para os seletores do formulário
         cursor.execute("INSERT INTO disciplinas (nome) VALUES ('Violão');")
         cursor.execute("INSERT INTO disciplinas (nome) VALUES ('Guitarra');")
         cursor.execute("INSERT INTO disciplinas (nome) VALUES ('Teclado');")
         cursor.execute("INSERT INTO disciplinas (nome) VALUES ('Canto');")
-        
+
         # Popula as salas disponíveis para a grade da agenda
         cursor.execute("INSERT INTO salas (nome) VALUES ('Sala 01');")
         cursor.execute("INSERT INTO salas (nome) VALUES ('Sala 02');")
-        
+
         conn.commit()
         mensagem = "✅ SISTEMA CARREGADO COM SUCESSO! Todos os professores e disciplinas estão ativos no Supabase."
     except Exception as e:
@@ -201,8 +212,9 @@ def reset_professores():
     finally:
         cursor.close()
         conn.close()
-        
+
     return f"<h3>{mensagem}</h3><br><a href='/'>Ir para o Login</a>"
+
 
 @app.route("/", methods=["GET", "POST"])
 def login():
@@ -386,49 +398,46 @@ def alunos():
 
     if request.method == "POST":
         nome = request.form.get("nome")
-        cpf = request.form.get("cpf")
-        telefone = request.form.get("telefone")
-        instrumento = request.form.get("instrumento")
-        dia_aula = request.form.get("dia_aula")
-        horario_aula = request.form.get("horario_aula")
         id_disciplina = request.form.get("id_disciplina")
         valor_mensalidade = request.form.get("valor")
-        dia_semana = request.form.get("dia_semana")
+
+        # Trata o campo de vencimento (vencimento_mensalidade na tabela)
+        dia_vencimento = request.form.get("dia_vencimento")
 
         cpf_rg = (
             request.form.get("cpf_rg")
             if request.form.get("cpf_rg")
             else request.form.get("cpf")
         )
-        endereco = request.form.get("endereco")
-        dia_vencimento = request.form.get("dia_vencimento")
 
-        id_professor_vinc = id_logado
+        id_professor_vinc = request.form.get("id_professor")
+        if not id_professor_vinc:
+            id_professor_vinc = id_logado
 
         cursor.execute(
             """
-            INSERT INTO alunos (nome, id_disciplina, valor_mensalidade, dia_semana, id_professor, cpf_rg, endereco, dia_vencimento)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s);
+            INSERT INTO alunos (nome, id_disciplina, valor_mensalidade, id_professor, cpf_rg, vencimento_mensalidade)
+            VALUES (%s, %s, %s, %s, %s, %s);
         """,
             (
                 nome,
                 id_disciplina,
                 valor_mensalidade,
-                dia_semana,
                 id_professor_vinc,
                 cpf_rg,
-                endereco,
                 dia_vencimento,
             ),
         )
 
         conn.commit()
+        cursor.close()
         conn.close()
         return redirect("/alunos")
 
+    # Bloco GET - Listagem de Alunos com tratamento manual para garantir formato de dicionário
     if nome_logado == "Bruno Moura":
         cursor.execute("""
-            SELECT al.id, al.nome, al.vencimento_mensalidade, al.valor_mensalidade, p.nome, d.nome
+            SELECT al.id, al.nome as aluno_nome, al.vencimento_mensalidade, al.valor_mensalidade, p.nome as prof_nome, d.nome as disc_nome
             FROM alunos al
             LEFT JOIN disciplinas d ON al.id_disciplina = d.id
             LEFT JOIN professores p ON al.id_professor = p.id;
@@ -436,7 +445,7 @@ def alunos():
     else:
         cursor.execute(
             """
-            SELECT al.id, al.nome, al.vencimento_mensalidade, al.valor_mensalidade, p.nome, d.nome
+            SELECT al.id, al.nome as aluno_nome, al.vencimento_mensalidade, al.valor_mensalidade, p.nome as prof_nome, d.nome as disc_nome
             FROM alunos al
             LEFT JOIN disciplinas d ON al.id_disciplina = d.id
             LEFT JOIN professores p ON al.id_professor = p.id
@@ -445,15 +454,42 @@ def alunos():
             (id_logado,),
         )
 
-    alunos_lista = cursor.fetchall()
+    # Converte os registros brutos do Postgres em listas de dicionários limpos
+    alunos_raw = cursor.fetchall()
+    alunos_lista = []
+    for r in alunos_raw:
+        # Garante compatibilidade tanto se vier como dicionário ou como tupla
+        if isinstance(r, dict):
+            alunos_lista.append(r)
+        else:
+            alunos_lista.append(
+                {
+                    "id": r[0],
+                    "nome": r[1],
+                    "vencimento_mensalidade": r[2],
+                    "valor_mensalidade": r[3],
+                    "professor_nome": r[4],
+                    "disciplina_nome": r[5],
+                }
+            )
 
-    cursor.execute("SELECT id, nome FROM disciplinas;")
-    disciplinas_lista = cursor.fetchall()
+    # Puxa as disciplinas forçando o formato esperado pelo HTML
+    cursor.execute("SELECT id, nome FROM disciplinas ORDER BY nome;")
+    disc_raw = cursor.fetchall()
+    disciplinas_lista = [
+        d if isinstance(d, dict) else {"id": d[0], "nome": d[1]} for d in disc_raw
+    ]
 
-    cursor.execute("SELECT id, nome FROM professores;")
-    professores_lista = cursor.fetchall()
+    # Puxa os professores forçando o formato esperado pelo HTML
+    cursor.execute("SELECT id, nome FROM professores ORDER BY nome;")
+    prof_raw = cursor.fetchall()
+    professores_lista = [
+        p if isinstance(p, dict) else {"id": p[0], "nome": p[1]} for p in prof_raw
+    ]
 
+    cursor.close()
     conn.close()
+
     return render_template(
         "alunos.html",
         alunos=alunos_lista,
@@ -549,13 +585,20 @@ def agenda():
 
     conn = obter_conexao()
     cursor = conn.cursor()
-    if is_sqlite_conn(conn):
-        cursor.execute("PRAGMA foreign_keys = ON;")
+
+    # Tratamento dinâmico para garantir que a coluna id_sala exista no Postgres do Supabase
+    try:
+        cursor.execute(
+            "ALTER TABLE agenda ADD COLUMN IF NOT EXISTS id_sala INTEGER DEFAULT 1;"
+        )
+        conn.commit()
+    except Exception:
+        pass
 
     erro = None
 
     if request.method == "POST":
-        id_sala = request.form.get("id_sala")
+        id_sala = request.form.get("id_sala", 1)
         id_professor = session["professor_id"]
         id_aluno = request.form.get("id_aluno")
         dia_semana = request.form.get("dia_semana")
@@ -584,32 +627,44 @@ def agenda():
                 ),
             )
             conn.commit()
+            cursor.close()
             conn.close()
             return redirect(f"/agenda?sala_id={id_sala}")
-        except Exception:
-            erro = "Conflito de Horário!"
+        except Exception as e:
+            erro = f"Conflito de Horário ou Erro no Agendamento!"
 
     sala_selecionada = request.args.get("sala_id", 1, type=int)
 
-    cursor.execute("SELECT id, nome FROM salas;")
-    all_salas = cursor.fetchall()
+    # Coleta de listagens forçando compatibilidade de formato para dicionário
+    cursor.execute("SELECT id, nome FROM salas ORDER BY nome;")
+    salas_raw = cursor.fetchall()
+    all_salas = [
+        s if isinstance(s, dict) else {"id": s[0], "nome": s[1]} for s in salas_raw
+    ]
 
-    cursor.execute("SELECT id, nome FROM professores;")
-    all_professores = cursor.fetchall()
+    cursor.execute("SELECT id, nome FROM professores ORDER BY nome;")
+    prof_raw = cursor.fetchall()
+    all_professores = [
+        p if isinstance(p, dict) else {"id": p[0], "nome": p[1]} for p in prof_raw
+    ]
 
-    cursor.execute("SELECT id, nome FROM alunos;")
-    all_alunos = cursor.fetchall()
+    cursor.execute("SELECT id, nome FROM alunos ORDER BY nome;")
+    alunos_raw = cursor.fetchall()
+    all_alunos = [
+        a if isinstance(a, dict) else {"id": a[0], "nome": a[1]} for a in alunos_raw
+    ]
 
     data_hoje = datetime.now().strftime("%Y-%m-%d")
 
+    # SQL Ajustado com apelidos explícitos (AS) para evitar chaves duplicadas com o nome 'nome'
     cursor.execute(
         """
-        SELECT age.dia_semana, age.horario, al.nome, p.nome, d.nome, age.tipo_aula
+        SELECT age.dia_semana, age.horario, al.nome as al_nome, p.nome as pf_nome, d.nome as dp_nome, age.tipo_aula
         FROM agenda age
         JOIN alunos al ON age.id_aluno = al.id
         JOIN professores p ON age.id_professor = p.id
-        JOIN disciplinas d ON al.id_disciplina = d.id
-        WHERE age.id_sala = %s
+        LEFT JOIN disciplinas d ON al.id_disciplina = d.id
+        WHERE COALESCE(age.id_sala, 1) = %s
         AND (age.tipo_aula = 'Fixa' OR (age.tipo_aula = 'Recuperacao' AND age.data_aula >= %s));
     """,
         (sala_selecionada, data_hoje),
@@ -618,24 +673,26 @@ def agenda():
 
     mapa_agenda = {}
     for row in agendamentos_banco:
+        # Tratamento robusto para extrair os dados independentemente de vir tupla ou dict row
         if isinstance(row, dict):
-            dia, hora, num_aluno, num_prof, num_curso, tipo = (
-                row["dia_semana"],
-                row["horario"],
-                row["nome"],
-                row[3],
-                row[4],
-                row["tipo_aula"],
-            )
+            dia = row.get("dia_semana")
+            hora = row.get("horario")
+            num_aluno = row.get("al_nome")
+            num_prof = row.get("pf_nome")
+            num_curso = row.get("dp_nome") if row.get("dp_nome") else "Geral"
+            tipo = row.get("tipo_aula")
         else:
             dia, hora, num_aluno, num_prof, num_curso, tipo = (
                 row[0],
                 row[1],
                 row[2],
                 row[3],
-                row[4],
+                row[4] if row[4] else "Geral",
                 row[5],
             )
+
+        if not hora:
+            continue
 
         hora_formatada = hora[:5]
 
@@ -665,28 +722,6 @@ def agenda():
 
         if not eh_minha_aula:
             texto_aula += f" <br><small class='text-muted'>Prof. {num_prof}</small>"
-
-        mapa_agenda[(dia, hora_formatada)] = (
-            f"<div class='{classe_destaque}'>{texto_aula}</div>"
-        )
-
-    dias_semana = ["Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado"]
-    horarios_grade = [f"{h:02d}:00" for h in range(8, 22)]
-
-    conn.close()
-    return render_template(
-        "agenda.html",
-        salas=all_salas,
-        professores=all_professores,
-        alunos=all_alunos,
-        mapa_agenda=mapa_agenda,
-        dias_semana=dias_semana,
-        horarios=horarios_grade,
-        sala_selecionada=sala_selecionada,
-        erro=erro,
-        id_professor_logado=session["professor_id"],
-        nome_professor=session["professor_nome"],
-    )
 
 
 @app.route("/baixar_pagamento/<int:id>/<int:status_pago>")
@@ -741,6 +776,29 @@ def financeiro():
     conn = obter_conexao()
     cursor = conn.cursor()
 
+    is_postgres = hasattr(conn, "encoding") or conn.__class__.__name__ == "Connection"
+    id_auto = (
+        "SERIAL PRIMARY KEY" if is_postgres else "INTEGER PRIMARY KEY AUTOINCREMENT"
+    )
+    text_type = "VARCHAR(255)" if is_postgres else "TEXT"
+    real_type = "NUMERIC(10,2)" if is_postgres else "REAL"
+
+    # Garante dinamicamente que a tabela de mensalidades exista no Supabase
+    try:
+        cursor.execute(f"""
+            CREATE TABLE IF NOT EXISTS mensalidades (
+                id {id_auto},
+                id_aluno INTEGER NOT NULL,
+                competencia {text_type} NOT NULL,
+                valor_devido {real_type},
+                status {text_type} DEFAULT 'Pendente',
+                data_pagamento {text_type}
+            );
+        """)
+        conn.commit()
+    except Exception:
+        pass
+
     if competencia_atual == datetime.now().strftime("%m/%Y"):
         cursor.execute("SELECT id, valor_mensalidade FROM alunos;")
         all_alunos = cursor.fetchall()
@@ -766,7 +824,9 @@ def financeiro():
                 )
         conn.commit()
 
-    cursor.execute("SELECT DISTINCT competencia FROM mensalidades ORDER BY id DESC;")
+    cursor.execute(
+        "SELECT DISTINCT competencia FROM mensalidades ORDER BY competencia DESC;"
+    )
     meses_banco = cursor.fetchall()
 
     meses_disponiveis = []
@@ -779,13 +839,14 @@ def financeiro():
     if datetime.now().strftime("%m/%Y") not in meses_disponiveis:
         meses_disponiveis.insert(0, datetime.now().strftime("%m/%Y"))
 
+    # SQL Ajustado usando apelidos explícitos (AS) para as colunas não se sobreporem
     if nome_logado == "Bruno Moura":
         cursor.execute(
             """
-            SELECT m.id, al.nome, m.competencia, m.valor_devido, m.status, m.data_pagamento, d.nome
+            SELECT m.id, al.nome as aluno_nome, m.competencia, m.valor_devido, m.status, m.data_pagamento, d.nome as disciplina_nome
             FROM mensalidades m
             JOIN alunos al ON m.id_aluno = al.id
-            JOIN disciplinas d ON al.id_disciplina = d.id
+            LEFT JOIN disciplinas d ON al.id_disciplina = d.id
             WHERE m.competencia = %s;
         """,
             (competencia_atual,),
@@ -793,16 +854,47 @@ def financeiro():
     else:
         cursor.execute(
             """
-            SELECT m.id, al.nome, m.competencia, m.valor_devido, m.status, m.data_pagamento, d.nome
+            SELECT m.id, al.nome as aluno_nome, m.competencia, m.valor_devido, m.status, m.data_pagamento, d.nome as disciplina_nome
             FROM mensalidades m
             JOIN alunos al ON m.id_aluno = al.id
-            JOIN disciplinas d ON al.id_disciplina = d.id
+            LEFT JOIN disciplinas d ON al.id_disciplina = d.id
             WHERE m.competencia = %s AND al.id_professor = %s;
         """,
             (competencia_atual, session["professor_id"]),
         )
 
-    lista_mensalidades = cursor.fetchall()
+    mensalidades_raw = cursor.fetchall()
+
+    # Mapeamento robusto para compatibilidade com o HTML do seu financeiro
+    lista_mensalidades = []
+    for row in mensalidades_raw:
+        if isinstance(row, dict):
+            # Se o HTML usa chaves diretas mapeadas ou apelidos
+            lista_mensalidades.append(
+                {
+                    "id": row.get("id"),
+                    "nome": row.get("aluno_nome"),
+                    "competencia": row.get("competencia"),
+                    "valor_devido": row.get("valor_devido"),
+                    "status": row.get("status"),
+                    "data_pagamento": row.get("data_pagamento"),
+                    "disciplina": row.get("disciplina_nome"),
+                }
+            )
+        else:
+            lista_mensalidades.append(
+                {
+                    "id": row[0],
+                    "nome": row[1],
+                    "competencia": row[2],
+                    "valor_devido": row[3],
+                    "status": row[4],
+                    "data_pagamento": row[5],
+                    "disciplina": row[6],
+                }
+            )
+
+    cursor.close()
     conn.close()
 
     return render_template(
