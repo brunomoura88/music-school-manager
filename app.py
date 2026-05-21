@@ -107,60 +107,87 @@ def bypass_login():
     return redirect("/dashboard")
 
 
-@app.route("/reset-professores-estudioa")
+@app.route('/reset-professores-estudioa')
 def reset_professores():
     conn = obter_conexao()
     cursor = conn.cursor()
-
+    
     try:
-        # 1. Sintaxe universal que funciona tanto no SQLite do Render quanto no Postgres
-        try:
-            cursor.execute("DROP TABLE IF EXISTS professores CASCADE;")
-        except Exception:
-            cursor.execute("DROP TABLE IF EXISTS professores;")
+        # 1. Limpa as tabelas antigas para evitar conflitos de colunas
+        cursor.execute("DROP TABLE IF EXISTS professores;")
+        cursor.execute("DROP TABLE IF EXISTS alunos;")
+        cursor.execute("DROP TABLE IF EXISTS agenda;")
+        cursor.execute("DROP TABLE IF EXISTS disciplinas;")
+        cursor.execute("DROP TABLE IF EXISTS salas;")
+        cursor.execute("DROP TABLE IF EXISTS mensalidades;")
         conn.commit()
-
-        is_postgres = (
-            hasattr(conn, "encoding") or conn.__class__.__name__ == "Connection"
-        )
-        id_auto = (
-            "SERIAL PRIMARY KEY" if is_postgres else "INTEGER PRIMARY KEY AUTOINCREMENT"
-        )
-
-        # 2. Cria a tabela limpa
-        cursor.execute(f"""
+        
+        is_postgres = hasattr(conn, 'encoding') or conn.__class__.__name__ == 'Connection'
+        id_auto = "SERIAL PRIMARY KEY" if is_postgres else "INTEGER PRIMARY KEY AUTOINCREMENT"
+        text_type = "VARCHAR(255)" if is_postgres else "TEXT"
+        real_type = "NUMERIC(10,2)" if is_postgres else "REAL"
+        
+        # 2. Criação da Tabela de Professores
+        cursor.execute(f'''
             CREATE TABLE professores (
                 id {id_auto},
-                nome VARCHAR(255) NOT NULL,
-                cpf VARCHAR(255) UNIQUE NOT NULL,
-                login VARCHAR(255) UNIQUE NOT NULL,
-                senha VARCHAR(255) NOT NULL
+                nome {text_type} NOT NULL,
+                cpf {text_type} UNIQUE NOT NULL,
+                login {text_type} UNIQUE NOT NULL,
+                senha {text_type} NOT NULL
             );
-        """)
-        conn.commit()
-
-        # 3. Hash fresco gerado direto na nuvem
-        senha_criptografada = generate_password_hash("estudioa123")
-
-        # 4. Força a inserção limpa do seu administrador
-        cursor.execute(
-            """
+        ''')
+        
+        # 3. Criação da Tabela de Disciplinas e Salas (Evita quebras na listagem)
+        cursor.execute(f"CREATE TABLE disciplinas (id {id_auto}, nome {text_type} UNIQUE NOT NULL);")
+        cursor.execute(f"CREATE TABLE salas (id {id_auto}, nome {text_type} UNIQUE NOT NULL);")
+        
+        # 4. Criação da Tabela de Alunos (Essencial para a Dashboard)
+        cursor.execute(f'''
+            CREATE TABLE alunos (
+                id {id_auto},
+                nome {text_type} NOT NULL,
+                cpf_rg {text_type},
+                vencimento_mensalidade {text_type},
+                valor_mensalidade {real_type},
+                id_disciplina INTEGER,
+                id_professor INTEGER
+            );
+        ''')
+        
+        # 5. Criação da Tabela de Agenda (Essencial para a Dashboard)
+        cursor.execute(f'''
+            CREATE TABLE agenda (
+                id {id_auto},
+                dia_semana {text_type} NOT NULL,
+                horario {text_type} NOT NULL,
+                id_professor INTEGER,
+                id_aluno INTEGER,
+                tipo_aula {text_type} DEFAULT 'Regular',
+                data_aula {text_type}
+            );
+        ''')
+        
+        # 6. Alimenta os dados iniciais do administrador absoluto
+        senha_criptografada = generate_password_hash('estudioa123')
+        cursor.execute('''
             INSERT INTO professores (nome, cpf, login, senha) 
             VALUES (%s, %s, %s, %s);
-        """,
-            ("Bruno Moura", "123", "bruno", senha_criptografada),
-        )
+        ''', ('Bruno Moura', '123', 'bruno', senha_criptografada))
+        
+        # Popula dados mínimos para os seletores não virem vazios
+        cursor.execute("INSERT INTO disciplinas (nome) VALUES ('Violão');")
+        cursor.execute("INSERT INTO salas (nome) VALUES ('Sala 01');")
+        
         conn.commit()
-
-        mensagem = "✅ BANCO RESETADO NATIVAMENTE! Usuário 'bruno' pronto com a senha 'estudioa123'."
+        mensagem = "✅ ESTRUTURA COMPLETA GERADA COM SUCESSO! Todas as tabelas prontas para a Dashboard."
     except Exception as e:
-        mensagem = f"❌ Erro ao resetar: {str(e)}"
+        mensagem = f"❌ Erro crítico na reestruturação: {str(e)}"
     finally:
         cursor.close()
         conn.close()
-
+        
     return f"<h3>{mensagem}</h3><br><a href='/'>Ir para o Login</a>"
-
 
 @app.route("/", methods=["GET", "POST"])
 def login():
