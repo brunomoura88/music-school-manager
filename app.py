@@ -108,7 +108,11 @@ def login():
         conn = None
         cursor = None
         try:
-            usuario_input = request.form.get('cpf') 
+            # CAPTURA INTELIGENTE: Aceita tanto se o formulário HTML usar 'cpf' quanto se usar 'login'
+            usuario_input = request.form.get('cpf')
+            if not usuario_input:
+                usuario_input = request.form.get('login')
+                
             senha_input = request.form.get('senha')
 
             if usuario_input:
