@@ -501,66 +501,6 @@ def alunos():
         professores=professores_lista,
     )
 
-
-@app.route("/aluno/editar/<int:id>", methods=["GET", "POST"])
-def editar_aluno(id):
-    if "professor_id" not in session:
-        return redirect("/")
-
-    conn = obter_conexao()
-    cursor = conn.cursor()
-
-    if request.method == "POST":
-        nome = request.form.get("nome")
-        cpf_rg = request.form.get("cpf")
-        endereco = request.form.get("endereco")
-        dia_vencimento = request.form.get("dia_vencimento")
-        valor_mensalidade = request.form.get("valor")
-        id_disciplina = request.form.get("id_disciplina")
-        id_professor = request.form.get("id_professor")
-
-        cursor.execute(
-            """
-            UPDATE alunos 
-            SET nome=%s, cpf_rg=%s, endereco=%s, vencimento_mensalidade=%s, valor_mensalidade=%s, id_disciplina=%s, id_professor=%s
-            WHERE id=%s;
-        """,
-            (nome, cpf_rg, endereco, dia_vencimento, valor_mensalidade, id_disciplina, id_professor, id),
-        )
-        conn.commit()
-        cursor.close()
-        conn.close()
-        return redirect("/alunos")
-
-    # GET - Carrega dados do aluno mapeados em dicionário para o HTML novo
-    cursor.execute("SELECT id, nome, cpf_rg, endereco, vencimento_mensalidade, valor_mensalidade, id_disciplina, id_professor FROM alunos WHERE id=%s;", (id,))
-    res = cursor.fetchone()
-    
-    if not res:
-        cursor.close()
-        conn.close()
-        return "Aluno não encontrado", 404
-
-    if isinstance(res, dict):
-        aluno_dados = res
-    else:
-        aluno_dados = {
-            "id": res[0], "nome": res[1], "cpf_rg": res[2], "endereco": res[3],
-            "vencimento_mensalidade": res[4], "valor_mensalidade": res[5],
-            "id_disciplina": res[6], "id_professor": res[7]
-        }
-
-    cursor.execute("SELECT id, nome FROM disciplinas ORDER BY nome;")
-    disciplinas_lista = [d if isinstance(d, dict) else {"id": d[0], "nome": d[1]} for d in cursor.fetchall()]
-
-    cursor.execute("SELECT id, nome FROM professores ORDER BY nome;")
-    professores_lista = [p if isinstance(p, dict) else {"id": p[0], "nome": p[1]} for p in cursor.fetchall()]
-
-    cursor.close()
-    conn.close()
-    return render_template("editar_aluno.html", aluno=aluno_dados, disciplinas=disciplinas_lista, professores=professores_lista)
-
-
 @app.route("/aluno/contrato/<int:id>")
 def aluno_contrato(id):
     if "professor_id" not in session:
