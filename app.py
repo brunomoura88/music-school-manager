@@ -362,17 +362,17 @@ def agenda():
         dia_semana = request.form.get('dia_semana')
         horario = request.form.get('horario')
         
-        tipo_aula = request.form.get('tipo_aula', 'Fixa')
+        type_aula_val = request.form.get('tipo_aula', 'Fixa')
         data_aula = request.form.get('data_aula')
         
-        if tipo_aula == 'Fixa':
+        if type_aula_val == 'Fixa':
             data_aula = None
 
         try:
             cursor.execute('''
                 INSERT INTO agenda (id_sala, id_professor, id_aluno, dia_semana, horario, tipo_aula, data_aula)
                 VALUES (%s, %s, %s, %s, %s, %s, %s);
-                ''', (id_sala, id_professor, id_aluno, dia_semana, horario, tipo_aula, data_aula))
+                ''', (id_sala, id_professor, id_aluno, dia_semana, horario, type_aula_val, data_aula))
             conn.commit()
             conn.close()
             return redirect(f'/agenda?sala_id={id_sala}')
@@ -547,98 +547,6 @@ def financeiro():
             WHERE m.competencia = %s AND al.id_professor = %s;
         ''', (competencia_atual, session['professor_id']))
         
-    lista_mensalidades = cursor.fetchall()
-    conn.close()
-
-    return render_template(
-        'financeiro.html', 
-        mensalidades=lista_mensalidades, 
-        competencia=competencia_atual,
-        meses_opcoes=meses_disponiveis
-    )
-
-@app.route('/financeiro/pagar/<int:id_mensalidade>')
-def pagar_mensalidade(id_mensalidade):
-    if 'professor_id' not in session:
-        return redirect('/')
-
-    data_hoje = datetime.now().strftime('%d/%m/%Y')
-    conn = obter_conexao()
-    cursor = conn.cursor()
-    
-    cursor.execute('''
-        UPDATE mensalidades 
-        SET status = 'Pago', data_pagamento = %s 
-        WHERE id = %s;
-    ''', (data_hoje, id_mensalidade))
-    
-    conn.commit()
-    conn.close()
-    return redirect('/financeiro')
-
-@app.route('/financeiro', methods=['GET', 'POST'])
-def financeiro():
-    if 'professor_id' not in session:
-        return redirect('/')
-        
-    nome_logado = session['professor_nome']
-    
-    if request.method == 'POST' and request.form.get('competencia_filtro'):
-        competencia_atual = request.form.get('competencia_filtro')
-    else:
-        competencia_atual = datetime.now().strftime('%m/%Y')
-
-    conn = obter_conexao()
-    cursor = conn.cursor()
-
-    if competencia_atual == datetime.now().strftime('%m/%Y'):
-        cursor.execute("SELECT id, valor_mensalidade FROM alunos;")
-        all_alunos = cursor.fetchall()
-        
-        for aluno in all_alunos:
-            if isinstance(aluno, dict):
-                id_aluno, valor = aluno['id'], aluno['valor_mensalidade']
-            else:
-                id_aluno, valor = aluno[0], aluno[1]
-                
-            cursor.execute("SELECT id FROM mensalidades WHERE id_aluno = %s AND competencia = %s;", (id_aluno, competencia_atual))
-            existe = cursor.fetchone()
-            if not existe:
-                cursor.execute('''
-                    INSERT INTO mensalidades (id_aluno, competencia, valor_devido, status)
-                        VALUES (%s, %s, %s, 'Pendente');
-                    ''', (id_aluno, competencia_atual, valor))
-        conn.commit()
-
-    cursor.execute("SELECT DISTINCT competencia FROM mensalidades ORDER BY id DESC;")
-    meses_banco = cursor.fetchall()
-    
-    meses_disponiveis = []
-    for r in meses_banco:
-        if isinstance(r, dict):
-            meses_disponiveis.append(r['competencia'])
-        else:
-            meses_disponiveis.append(r[0])
-    
-    if datetime.now().strftime('%m/%Y') not in meses_disponiveis:
-        meses_disponiveis.insert(0, datetime.now().strftime('%m/%Y'))
-
-    if nome_logado == 'Bruno Moura':
-        cursor.execute('''
-            SELECT m.id, al.nome, m.competencia, m.valor_devido, m.status, m.data_pagamento, d.nome
-            FROM mensalidades m
-            JOIN alunos al ON m.id_aluno = al.id
-            JOIN disciplinas d ON al.id_disciplina = d.id
-            WHERE m.competencia = %s;
-        ''', (competencia_atual,))
-    else:
-        cursor.execute('''
-            SELECT m.id, al.nome, m.competencia, m.valor_devido, m.status, m.data_pagamento, d.nome
-            FROM mensalidades m
-            JOIN alunos al ON m.id_aluno = al.id
-            JOIN disciplinas d ON al.id_disciplina = d.id
-            WHERE m.competencia = %s AND al.id_professor = %s;
-        ''', (competencia_atual, session['professor_id']))
         
     lista_mensalidades = cursor.fetchall()
     conn.close()
@@ -649,25 +557,6 @@ def financeiro():
         competencia=competencia_atual,
         meses_opcoes=meses_disponiveis
     )
-
-@app.route('/financeiro/pagar/<int:id_mensalidade>')
-def pagar_mensalidade(id_mensalidade):
-    if 'professor_id' not in session:
-        return redirect('/')
-
-    data_hoje = datetime.now().strftime('%d/%m/%Y')
-    conn = obter_conexao()
-    cursor = conn.cursor()
-    
-    cursor.execute('''
-        UPDATE mensalidades 
-        SET status = 'Pago', data_pagamento = %s 
-        WHERE id = %s;
-    ''', (data_hoje, id_mensalidade))
-    
-    conn.commit()
-    conn.close()
-    return redirect('/financeiro')
 
 @app.route('/financeiro/pagar/<int:id_mensalidade>')
 def pagar_mensalidade(id_mensalidade):
