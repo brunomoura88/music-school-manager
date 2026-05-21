@@ -459,23 +459,27 @@ def alunos():
     alunos_lista = []
     for r in alunos_raw:
         if isinstance(r, dict):
-            alunos_lista.append({
-                "id": r.get("id"),
-                "nome": r.get("aluno_nome"),
-                "vencimento_mensalidade": r.get("vencimento_mensalidade"),
-                "valor_mensalidade": r.get("valor_mensalidade"),
-                "professor_nome": r.get("prof_nome"),
-                "disciplina_nome": r.get("disc_nome"),
-            })
+            alunos_lista.append(
+                {
+                    "id": r.get("id"),
+                    "nome": r.get("aluno_nome"),
+                    "vencimento_mensalidade": r.get("vencimento_mensalidade"),
+                    "valor_mensalidade": r.get("valor_mensalidade"),
+                    "professor_nome": r.get("prof_nome"),
+                    "disciplina_nome": r.get("disc_nome"),
+                }
+            )
         else:
-            alunos_lista.append({
-                "id": r[0],
-                "nome": r[1],
-                "vencimento_mensalidade": r[2],
-                "valor_mensalidade": r[3],
-                "professor_nome": r[4],
-                "disciplina_nome": r[5],
-            })
+            alunos_lista.append(
+                {
+                    "id": r[0],
+                    "nome": r[1],
+                    "vencimento_mensalidade": r[2],
+                    "valor_mensalidade": r[3],
+                    "professor_nome": r[4],
+                    "disciplina_nome": r[5],
+                }
+            )
 
     # Puxa as disciplinas forçando o formato esperado pelo HTML
     cursor.execute("SELECT id, nome FROM disciplinas ORDER BY nome;")
@@ -501,6 +505,7 @@ def alunos():
         professores=professores_lista,
     )
 
+
 @app.route("/aluno/contrato/<int:id>")
 def aluno_contrato(id):
     if "professor_id" not in session:
@@ -509,12 +514,16 @@ def aluno_contrato(id):
     conn = obter_conexao()
     cursor = conn.cursor()
 
-    cursor.execute("""
-        SELECT al.id, al.nome, al.vencimento_mensalidade, al.valor_mensalidade, d.nome as disciplina_nome, al.cpf_rg, al.endereco
+    # SELECT usando aliases claros para evitar chaves confusas no Postgres
+    cursor.execute(
+        """
+        SELECT al.id as aluno_id, al.nome as aluno_nome, al.vencimento_mensalidade, al.valor_mensalidade, d.nome as disc_nome, al.cpf_rg, al.endereco
         FROM alunos al
         LEFT JOIN disciplinas d ON al.id_disciplina = d.id
         WHERE al.id = %s;
-    """, (id,))
+    """,
+        (id,),
+    )
     res = cursor.fetchone()
 
     cursor.close()
@@ -523,15 +532,16 @@ def aluno_contrato(id):
     if not res:
         return "Aluno não encontrado", 404
 
-    if isinstance(res, dict):
+    # Extração totalmente isolada e explícita das chaves mapeadas no SELECT acima
+    if hasattr(res, "get"):
         aluno_dados = {
-            "id": res.get("id"),
-            "nome": res.get("nome"),
+            "id": res.get("aluno_id"),
+            "nome": res.get("aluno_nome"),
             "vencimento_mensalidade": res.get("vencimento_mensalidade"),
             "valor_mensalidade": res.get("valor_mensalidade"),
-            "disciplina_nome": res.get("disciplina_nome"),
+            "disciplina_nome": res.get("disc_nome"),
             "cpf_rg": res.get("cpf_rg"),
-            "endereco": res.get("endereco")
+            "endereco": res.get("endereco"),
         }
     else:
         aluno_dados = {
@@ -541,10 +551,11 @@ def aluno_contrato(id):
             "valor_mensalidade": res[3],
             "disciplina_nome": res[4],
             "cpf_rg": res[5],
-            "endereco": res[6]
+            "endereco": res[6],
         }
 
     return render_template("contrato.html", aluno=aluno_dados)
+
 
 @app.route("/excluir_aluno/<int:id>")
 def excluir_aluno(id):
@@ -556,49 +567,19 @@ def excluir_aluno(id):
     return redirect("/alunos")
 
 
-@app.route("/aluno/editar/<int:id_aluno>", methods=["GET", "POST"])
-def editar_aluno(id_aluno):
+@app.route("/aluno/editar/<int:id>", methods=["GET", "POST"])
+def editar_aluno(id):
     if "professor_id" not in session:
         return redirect("/")
 
-    id_logado = session["professor_id"]
     conn = obter_conexao()
     cursor = conn.cursor()
 
-    if request.method == "GET":
-        cursor.execute(
-            """
-            SELECT id, nome, cpf_rg, endereco, vencimento_mensalidade, valor_mensalidade, id_disciplina, id_professor 
-            FROM alunos 
-            WHERE id = %s;
-        """,
-            (id_aluno,),
-        )
-        aluno_dados = cursor.fetchone()
-
-        if not aluno_dados:
-            conn.close()
-            return "Aluno não encontrado!", 404
-
-        cursor.execute("SELECT id, nome FROM disciplinas;")
-        disciplinas_lista = cursor.fetchall()
-
-        cursor.execute("SELECT id, nome FROM professores;")
-        professores_lista = cursor.fetchall()
-
-        conn.close()
-        return render_template(
-            "editar_aluno.html",
-            aluno=aluno_dados,
-            disciplinas=disciplinas_lista,
-            professores=professores_lista,
-        )
-
-    elif request.method == "POST":
+    if request.method == "POST":
         nome = request.form.get("nome")
         cpf_rg = request.form.get("cpf")
         endereco = request.form.get("endereco")
-        vencimento_mensalidade = request.form.get("dia_vencimento")
+        dia_vencimento = request.form.get("dia_vencimento")
         valor_mensalidade = request.form.get("valor")
         id_disciplina = request.form.get("id_disciplina")
         id_professor = request.form.get("id_professor")
@@ -606,24 +587,96 @@ def editar_aluno(id_aluno):
         cursor.execute(
             """
             UPDATE alunos 
-            SET nome = %s, cpf_rg = %s, endereco = %s, vencimento_mensalidade = %s, valor_mensalidade = %s, id_disciplina = %s, id_professor = %s
-            WHERE id = %s;
+            SET nome=%s, cpf_rg=%s, endereco=%s, vencimento_mensalidade=%s, valor_mensalidade=%s, id_disciplina=%s, id_professor=%s
+            WHERE id=%s;
         """,
             (
                 nome,
                 cpf_rg,
                 endereco,
-                vencimento_mensalidade,
+                dia_vencimento,
                 valor_mensalidade,
                 id_disciplina,
                 id_professor,
-                id_aluno,
+                id,
             ),
         )
-
         conn.commit()
+        cursor.close()
         conn.close()
         return redirect("/alunos")
+
+    # GET - SELECT explícito com apelidos forçados (AS) para o Postgres gerar as chaves certas
+    cursor.execute(
+        """
+        SELECT id, nome, cpf_rg, endereco, vencimento_mensalidade, valor_mensalidade, id_disciplina, id_professor 
+        FROM alunos 
+        WHERE id=%s;
+    """,
+        (id,),
+    )
+    res = cursor.fetchone()
+
+    if not res:
+        cursor.close()
+        conn.close()
+        return "Aluno não encontrado", 404
+
+    # Monta o dicionário de forma segura, aceitando tanto DictRow quanto Tupla pura
+    if hasattr(res, "get"):  # Se for dicionário
+        aluno_dados = {
+            "id": res.get("id"),
+            "nome": res.get("nome"),
+            "cpf_rg": res.get("cpf_rg"),
+            "endereco": res.get("endereco"),
+            "vencimento_mensalidade": res.get("vencimento_mensalidade"),
+            "valor_mensalidade": res.get("valor_mensalidade"),
+            "id_disciplina": res.get("id_disciplina"),
+            "id_professor": res.get("id_professor"),
+        }
+    else:  # Se for tupla por falha de driver
+        aluno_dados = {
+            "id": res[0],
+            "nome": res[1],
+            "cpf_rg": res[2],
+            "endereco": res[3],
+            "vencimento_mensalidade": res[4],
+            "valor_mensalidade": res[5],
+            "id_disciplina": res[6],
+            "id_professor": res[7],
+        }
+
+    # Busca listagens para os selects do HTML
+    cursor.execute("SELECT id, nome FROM disciplinas ORDER BY nome;")
+    disc_rows = cursor.fetchall()
+    disciplinas_lista = [
+        (
+            {"id": r.get("id"), "nome": r.get("nome")}
+            if hasattr(r, "get")
+            else {"id": r[0], "nome": r[1]}
+        )
+        for r in disc_rows
+    ]
+
+    cursor.execute("SELECT id, nome FROM professores ORDER BY nome;")
+    prof_rows = cursor.fetchall()
+    professores_lista = [
+        (
+            {"id": r.get("id"), "nome": r.get("nome")}
+            if hasattr(r, "get")
+            else {"id": r[0], "nome": r[1]}
+        )
+        for r in prof_rows
+    ]
+
+    cursor.close()
+    conn.close()
+    return render_template(
+        "editar_aluno.html",
+        aluno=aluno_dados,
+        disciplinas=disciplinas_lista,
+        professores=professores_lista,
+    )
 
 
 @app.route("/agenda", methods=["GET", "POST"])
@@ -793,6 +846,7 @@ def agenda():
         id_professor_logado=session["professor_id"],
         nome_professor=session["professor_nome"],
     )
+
 
 @app.route("/baixar_pagamento/<int:id>/<int:status_pago>")
 def baixar_pagamento(id, status_pago):
