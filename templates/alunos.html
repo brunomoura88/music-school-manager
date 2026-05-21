@@ -45,7 +45,7 @@
                         <div class="row mb-2">
                             <div class="col">
                                 <label class="form-label text-light small">Dia Vencimento</label>
-                                <input type="number" class="form-control form-control-sm" name="vencimento" min="1" max="31" placeholder="Ex: 10" required>
+                                <input type="number" class="form-control form-control-sm" name="dia_vencimento" min="1" max="31" placeholder="Ex: 10" required>
                             </div>
                             <div class="col">
                                 <label class="form-label text-light small">Valor Mensalidade</label>
@@ -57,7 +57,7 @@
                             <select class="form-select form-select-sm" name="id_disciplina" required>
                                 <option value="">Selecione...</option>
                                 {% for d in disciplinas %}
-                                <option value="{{ d[0] }}">{{ d[1] }}</option>
+                                <option value="{{ d.id }}">{{ d.nome }}</option>
                                 {% endfor %}
                             </select>
                         </div>
@@ -66,7 +66,7 @@
                             <select class="form-select form-select-sm" name="id_professor" required>
                                 <option value="">Selecione...</option>
                                 {% for p in professores %}
-                                <option value="{{ p[0] }}">{{ p[1] }}</option>
+                                <option value="{{ p.id }}">{{ p.nome }}</option>
                                 {% endfor %}
                             </select>
                         </div>
@@ -80,46 +80,48 @@
                     <h4 class="fw-bold mb-3 text-uppercase">Alunos Cadastrados</h4>
                     <div class="table-responsive">
                         <table class="table table-dark table-striped align-middle mb-0" style="font-size: 14px;">
-    <thead>
-        <tr>
-            <th>ID</th>
-            <th>Nome</th>
-            <th>Curso</th>
-            <th>Professor</th>
-            <th>Venc.</th>
-            <th>Valor</th>
-            <th>Ações</th> </tr>
-    </thead>
-    <tbody>
-        {% if not alunos %}
-        <tr>
-            <td colspan="7" class="text-center text-muted py-3">Nenhum aluno cadastrado ainda.</td>
-        </tr>
-        {% endif %}
-        {% for a in alunos %}
-            <tr>
-                <td>{{ a[0] }}</td>
-                <td class="fw-bold">{{ a[1] }}</td>
-                <td><span class="badge bg-secondary">{{ a[5] }}</span></td>
-                <td>{{ a[4] }}</td>
-                <td>Dia {{ a[2] }}</td>
-                <td>R$ {{ "%.2f"|format(a[3]) }}</td>
-                
-                <td class="text-nowrap align-middle">
-    <a href="/aluno/contrato/{{ a[0] }}" class="btn btn-warning btn-sm fw-bold me-1" target="_blank">
-        📄 Contrato
-    </a>
-    <a href="/aluno/editar/{{ a[0] }}" class="btn btn-primary btn-sm fw-bold me-1">
-        ✏️ Editar
-    </a>
-    <a href="/excluir_aluno/{{ a[0] }}" class="btn btn-danger btn-sm fw-bold" onclick="return confirm('Tem certeza?')">
-        Excluir
-    </a>
-</td>
-            </tr>
-            {% endfor %}
-    </tbody>
-</table>                    </div>
+                            <thead>
+                                <tr>
+                                    <th>ID</th>
+                                    <th>Nome</th>
+                                    <th>Curso</th>
+                                    <th>Professor</th>
+                                    <th>Venc.</th>
+                                    <th>Valor</th>
+                                    <th>Ações</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% if not alunos %}
+                                <tr>
+                                    <td colspan="7" class="text-center text-muted py-3">Nenhum aluno cadastrado ainda.</td>
+                                </tr>
+                                {% endif %}
+                                {% for a in alunos %}
+                                    <tr>
+                                        <td>{{ a.id }}</td>
+                                        <td class="fw-bold">{{ a.nome }}</td>
+                                        <td><span class="badge bg-secondary">{{ a.disciplina_nome if a.disciplina_nome else 'Geral' }}</span></td>
+                                        <td>{{ a.professor_nome if a.professor_nome else 'Não vinculado' }}</td>
+                                        <td>Dia {{ a.vencimento_mensalidade }}</td>
+                                        <td>R$ {{ "%.2f"|format(a.valor_mensalidade|float) if a.valor_mensalidade else '0.00' }}</td>
+                                        
+                                        <td class="text-nowrap align-middle">
+                                            <a href="/aluno/contrato/{{ a.id }}" class="btn btn-warning btn-sm fw-bold me-1" target="_blank">
+                                                📄 Contrato
+                                            </a>
+                                            <a href="/aluno/editar/{{ a.id }}" class="btn btn-primary btn-sm fw-bold me-1">
+                                                ✏️ Editar
+                                            </a>
+                                            <a href="/excluir_aluno/{{ a.id }}" class="btn btn-danger btn-sm fw-bold" onclick="return confirm('Tem certeza?')">
+                                                Excluir
+                                            </a>
+                                        </td>
+                                    </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
             </div>
         </div>
