@@ -290,13 +290,17 @@ def login():
         conn = None
         cursor = None
         try:
-            usuario_input = request.form.get('cpf') 
+            usuario_input = request.form.get('cpf') # Pegamos o que foi digitado
             senha_input = request.form.get('senha')
+
+            if usuario_input:
+                usuario_input = usuario_input.strip()
 
             conn = obter_conexao()
             cursor = conn.cursor()
 
-            cursor.execute("SELECT id, nome, senha FROM professores WHERE login = %s OR cpf = %s;", (usuario_input, usuario_input))
+            # Buscamos diretamente pelo login puro, sem o operador OR que confunde o Postgres
+            cursor.execute("SELECT id, nome, senha FROM professores WHERE login = %s;", (usuario_input,))
             professor = cursor.fetchone()
 
             if professor:
@@ -307,7 +311,6 @@ def login():
                 else:
                     id_prof, nome_prof, senha_banco = professor
                 
-                # Validação da senha
                 if senha_banco == senha_input or (senha_banco and senha_banco.startswith(('scrypt:', 'pbkdf2:')) and check_password_hash(senha_banco, senha_input)):
                     
                     if senha_banco == senha_input:
@@ -315,12 +318,8 @@ def login():
                         cursor.execute("UPDATE professores SET senha = %s WHERE id = %s;", (senha_com_hash, id_prof))
                         conn.commit()
 
-                    # --- SEGURANÇA MÁXIMA DA SESSÃO ---
-                    # Forçamos o ID a virar String para garantir compatibilidade total de Cookies no Render
                     session['professor_id'] = str(id_prof)
                     session['professor_nome'] = str(nome_prof)
-                    
-                    # Força o Flask a gravar os dados na memória imediatamente
                     session.modified = True 
                     
                     cursor.close()
@@ -329,7 +328,8 @@ def login():
                 else:
                     erro = "Senha incorreta!"
             else:
-                erro = "Professor não encontrado!"
+                # Se o banco não achar o usuário 'bruno'
+                erro = f"Usuário '{usuario_input}' não encontrado no banco de dados."
                 
         except Exception as e:
             erro = f"Erro no banco de dados: {str(e)}"
@@ -340,7 +340,6 @@ def login():
                 conn.close()
 
     return render_template('login.html', erro=erro)
-
 @app.route('/logout')
 def logout():
     # Limpa o carimbo da sessão, deslogando o usuário
