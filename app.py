@@ -268,23 +268,26 @@ def aplicar_migracoes():
 # ==========================================
 # ROTAS DO SISTEMA
 # ==========================================
+# ROTA DE LOGOUT: Para o professor sair com segurança e apagar o carimbo
 @app.route('/', methods=['GET', 'POST'])
 def login():
-    conn = obter_conexao()
-    cursor = conn.cursor()
     erro = None
 
     if request.method == 'POST':
+        conn = None
+        cursor = None
         try:
             usuario_input = request.form.get('cpf') 
             senha_input = request.form.get('senha')
+
+            conn = obter_conexao()
+            cursor = conn.cursor()
 
             cursor.execute("SELECT id, nome, senha FROM professores WHERE login = %s OR cpf = %s;", (usuario_input, usuario_input))
             professor = cursor.fetchone()
 
             if professor:
-                # Se o dict_row estiver ativo, 'professor' é um dicionário, não uma tupla!
-                # Vamos extrair os dados de forma segura que aceita tanto dicionário quanto tupla:
+                # Suporte duplo: funciona se 'professor' for dicionário ou tupla
                 if isinstance(professor, dict):
                     id_prof = professor['id']
                     nome_prof = professor['nome']
@@ -292,34 +295,44 @@ def login():
                 else:
                     id_prof, nome_prof, senha_banco = professor
                 
-                # Validação da senha
-                if senha_banco == senha_input or (senha_banco and senha_banco.startswith(('scrypt:', 'pbkdf2:')) and check_password_hash(senha_banco, senha_input)):
-                    
+                # --- TESTE DE SEGURANÇA CONTRA CRYPTO TRAVANDO ---
+                try:
+                    # Se a senha for igual em texto limpo
                     if senha_banco == senha_input:
                         senha_com_hash = generate_password_hash(senha_input)
                         cursor.execute("UPDATE professores SET senha = %s WHERE id = %s;", (senha_com_hash, id_prof))
                         conn.commit()
-
-                    session['professor_id'] = id_prof
-                    session['professor_nome'] = nome_prof
+                        
+                        session['professor_id'] = id_prof
+                        session['professor_nome'] = nome_prof
+                        cursor.close()
+                        conn.close()
+                        return redirect('/dashboard')
                     
-                    cursor.close()
-                    conn.close()
-                    return redirect('/dashboard')
-                else:
-                    erro = "Senha incorreta!"
+                    # Se for validação por Hash
+                    elif senha_banco and check_password_hash(senha_banco, senha_input):
+                        session['professor_id'] = id_prof
+                        session['professor_nome'] = nome_prof
+                        cursor.close()
+                        conn.close()
+                        return redirect('/dashboard')
+                    else:
+                        erro = "Senha incorreta!"
+                except Exception as crypto_err:
+                    erro = f"Erro na checagem de criptografia de senha: {str(crypto_err)}"
             else:
                 erro = "Professor não encontrado!"
                 
         except Exception as e:
-            # SE ALGO QUEBRAR, IMPRIME NO LOG DO RENDER E MOSTRA NA TELA
-            print(f"--- ERRO CRÍTICO NO LOGIN: {str(e)} ---")
-            erro = f"Erro interno do servidor: {str(e)}"
+            # Captura qualquer erro de banco, conexão ou sintaxe SQL
+            erro = f"Erro no processamento do banco: {str(e)}"
+        finally:
+            if cursor:
+                cursor.close()
+            if conn:
+                conn.close()
 
-    cursor.close()
-    conn.close()
     return render_template('login.html', erro=erro)
-# ROTA DE LOGOUT: Para o professor sair com segurança e apagar o carimbo
 @app.route('/logout')
 def logout():
     # Limpa o carimbo da sessão, deslogando o usuário
