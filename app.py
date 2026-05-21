@@ -728,13 +728,6 @@ def pagar_mensalidade(id_mensalidade):
     return redirect('/financeiro')
 
 if __name__ == '__main__':
-    try:
-        init_db()
-        aplicar_migracoes()
-        popular_dados_iniciais()
-    except Exception as e:
-        print('Aviso: falha na inicialização do banco:', e)
-
     import os
     porta = int(os.environ.get("PORT", 5000))
     app.run(host='0.0.0.0', port=porta)
