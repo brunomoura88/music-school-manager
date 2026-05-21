@@ -132,7 +132,7 @@ def reset_professores():
 
         senha_padrao = generate_password_hash("estudioa123")
         professores_iniciais = [
-            ("Bruno Moura", "123", "bruno", senha_padrao),
+            ("Bruno Moura", "123", "brunomoura", senha_padrao),
             ("Bruno Mota", "456", "brunomota", senha_padrao),
             ("Raphael Russowsky", "789", "raphael", senha_padrao),
             ("Guilherme Martins", "101", "guilherme", senha_padrao),
