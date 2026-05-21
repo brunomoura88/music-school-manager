@@ -73,19 +73,19 @@ def obter_conexao():
 
 app = Flask(__name__)
 
-# DEFINA UMA CHAVE FIXA E FORTE PARA AS SESSÕES NÃO CAÍREM NO RENDER
-app.secret_key = 'EstudioA_ChaveSecreta_Chaveirao_123!'
+# [CORREÇÃO 4] Secret key protegida por variável de ambiente
+app.secret_key = os.environ.get("SECRET_KEY", "EstudioA_ChaveSecreta_Chaveirao_123!")
 
-# --- AJUSTE ABSOLUTO DE COOKIES PARA PRODUÇÃO (RENDER) ---
+# --- AJUSTE INTELIGENTE DE SESSÃO PARA O RENDER ---
 if os.environ.get("DATABASE_URL"):
     from werkzeug.middleware.proxy_fix import ProxyFix
     app.wsgi_app = ProxyFix(app.wsgi_app, x_proto=1, x_host=1)
     
-    # Configurações obrigatórias para o cookie prender no navegador via HTTPS do Render
+    # [CORREÇÃO 1] Configuração recomendada com SameSite='Lax'
     app.config.update(
         SESSION_COOKIE_SECURE=True,
         SESSION_COOKIE_HTTPONLY=True,
-        SESSION_COOKIE_SAMESITE='None',  # Permite cross-site redirections de proxy de forma estável
+        SESSION_COOKIE_SAMESITE='Lax',
     )
 else:
     app.config.update(
@@ -93,188 +93,6 @@ else:
         SESSION_COOKIE_HTTPONLY=True,
         SESSION_COOKIE_SAMESITE='Lax',
     )
-
-# === RECRIADA A FUNÇÃO CORRETA PARA INICIALIZAR O BANCO ===
-def init_db():
-    conn = obter_conexao()
-    cursor = conn.cursor()
-    
-    # Verifica se estamos usando PostgreSQL (psycopg) ou SQLite
-    is_postgres = hasattr(conn, 'encoding') or conn.__class__.__name__ == 'Connection'
-    
-    # Define os tipos de autoincremento para cada banco
-    id_auto = "SERIAL PRIMARY KEY" if is_postgres else "INTEGER PRIMARY KEY AUTOINCREMENT"
-    text_type = "VARCHAR(255)" if is_postgres else "TEXT"
-    text_long = "TEXT"
-    real_type = "NUMERIC(10,2)" if is_postgres else "REAL"
-    
-    # 1. Tabela de Professores
-    cursor.execute(f'''
-        CREATE TABLE IF NOT EXISTS professores (
-            id {id_auto},
-            nome {text_type} NOT NULL,
-            cpf {text_type} UNIQUE NOT NULL,
-            login {text_type},
-            senha {text_type}
-        );
-    ''')
-
-    # 2. Tabela de Disciplinas
-    cursor.execute(f'''
-        CREATE TABLE IF NOT EXISTS disciplinas (
-            id {id_auto},
-            nome {text_type} UNIQUE NOT NULL
-        );
-    ''')
-
-    # 3. Tabela de Salas
-    cursor.execute(f'''
-        CREATE TABLE IF NOT EXISTS salas (
-            id {id_auto},
-            nome {text_type} UNIQUE NOT NULL
-        );
-    ''')
-    
-    # 4. Tabela de Alunos
-    cursor.execute(f'''
-        CREATE TABLE IF NOT EXISTS alunos (
-            id {id_auto},
-            nome {text_type} NOT NULL,
-            cpf {text_type},
-            telefone {text_type},
-            instrumento {text_type},
-            dia_aula {text_type},
-            horario_aula {text_type},
-            id_disciplina INTEGER REFERENCES disciplinas(id),
-            id_professor INTEGER REFERENCES professores(id),
-            valor_mensalidade {real_type},
-            vencimento_mensalidade {text_type},
-            dia_vencimento INTEGER,
-            dia_semana {text_type},
-            cpf_rg {text_type},
-            endereco {text_long},
-            pago INTEGER DEFAULT 0
-        );
-    ''')
-    
-    # 5. Tabela de Agenda
-    cursor.execute(f'''
-        CREATE TABLE IF NOT EXISTS agenda (
-            id {id_auto},
-            id_sala INTEGER,
-            id_professor INTEGER,
-            id_aluno INTEGER,
-            dia_semana {text_type} NOT NULL,
-            horario {text_type} NOT NULL,
-            tipo_aula {text_type} DEFAULT 'Regular',
-            data_aula {text_type}
-        );
-    ''')
-    
-    # 6. Tabela de Financeiro
-    cursor.execute(f'''
-        CREATE TABLE IF NOT EXISTS financeiro (
-            id {id_auto},
-            aluno_id INTEGER,
-            mes_referencia {text_type} NOT NULL,
-            valor {real_type} NOT NULL,
-            status {text_type} DEFAULT 'Pendente',
-            data_pagamento {text_type},
-            tipo {text_type} DEFAULT 'Receita',
-            descricao {text_long}
-        );
-    ''')
-    
-    conn.commit()
-    cursor.close()
-    conn.close()
-
-def popular_dados_iniciais():
-    conn = obter_conexao()
-    cursor = conn.cursor()
-
-    disciplinas = [('Violão',), ('Guitarra',), ('Teclado',), ('Bateria',), ('Canto',), ('Contra-Baixo',)]
-    cursor.executemany("INSERT INTO disciplinas (nome) VALUES (%s) ON CONFLICT (nome) DO NOTHING;", disciplinas)
-
-    salas = [('Sala 01',), ('Sala 02',)]
-    cursor.executemany("INSERT INTO salas (nome) VALUES (%s) ON CONFLICT (nome) DO NOTHING;", salas)
-
-    professores = [
-        ('Bruno Moura', '123', 'bruno', generate_password_hash('estudioa123')),
-        ('Bruno Mota', '456', 'brunomota', generate_password_hash('estudioa123')),
-        ('Raphael Russowsky', '789', 'raphael', generate_password_hash('estudioa123')),
-        ('Guilherme Martins', '101', 'guilherme', generate_password_hash('estudioa123')),
-        ('Beatriz Ribeiro', '202', 'beatriz', generate_password_hash('estudioa123'))
-    ]
-    
-    for nome, cpf, login, senha in professores:
-        cursor.execute("SELECT id FROM professores WHERE nome = %s;", (nome,))
-        if not cursor.fetchone():
-            cursor.execute('''
-                INSERT INTO professores (nome, cpf, login, senha) 
-                VALUES (%s, %s, %s, %s);
-            ''', (nome, cpf, login, senha))
-
-    conn.commit()
-    cursor.close()
-    conn.close()
-
-def aplicar_migracoes():
-    conn = obter_conexao()
-    cursor = conn.cursor()
-    
-    is_postgres = hasattr(conn, 'encoding') or conn.__class__.__name__ == 'Connection'
-    id_auto = 'SERIAL PRIMARY KEY' if is_postgres else 'INTEGER PRIMARY KEY AUTOINCREMENT'
-    real_type = "NUMERIC(10,2)" if is_postgres else "REAL"
-    
-    tabelas_colunas = [
-        ("professores", "login TEXT"),
-        ("professores", "senha TEXT"),
-        ("alunos", "cpf_rg TEXT"),
-        ("alunos", "endereco TEXT"),
-        ("alunos", "dia_vencimento INTEGER"),
-        ("alunos", "pago INTEGER DEFAULT 0"),
-        ("alunos", "dia_semana TEXT"),
-        ("alunos", "id_disciplina INTEGER"),
-        ("alunos", "id_professor INTEGER"),
-        ("alunos", "vencimento_mensalidade TEXT"),
-        ("agenda", "id_sala INTEGER"),
-        ("agenda", "id_professor INTEGER"),
-        ("agenda", "id_aluno INTEGER"),
-        ("agenda", "tipo_aula TEXT DEFAULT 'Fixa'"),
-        ("agenda", "data_aula TEXT")
-    ]
-    
-    for tabela, coluna in tabelas_colunas:
-        try:
-            cursor.execute(f"ALTER TABLE {tabela} ADD COLUMN {coluna};")
-            conn.commit()
-        except Exception:
-            pass
-
-    try:
-        cursor.execute("UPDATE agenda SET id_professor = professor_id WHERE id_professor IS NULL AND professor_id IS NOT NULL;")
-        cursor.execute("UPDATE agenda SET id_aluno = aluno_id WHERE id_aluno IS NULL AND aluno_id IS NOT NULL;")
-        cursor.execute("UPDATE agenda SET data_aula = data_recuperacao WHERE data_aula IS NULL AND data_recuperacao IS NOT NULL;")
-        conn.commit()
-    except Exception:
-        pass
-
-    cursor.execute(f'''
-        CREATE TABLE IF NOT EXISTS mensalidades (
-            id {id_auto},
-            id_aluno INTEGER NOT NULL,
-            competencia VARCHAR(50) NOT NULL,
-            valor_devido {real_type} NOT NULL,
-            status VARCHAR(50) NOT NULL,
-            data_pagamento VARCHAR(50),
-            FOREIGN KEY (id_aluno) REFERENCES alunos(id)
-        );
-    ''')
-    conn.commit()
-    cursor.close()
-    conn.close()
-
 
 # ==========================================
 # ROTAS DO SISTEMA
@@ -314,13 +132,12 @@ def login():
                         cursor.execute("UPDATE professores SET senha = %s WHERE id = %s;", (senha_com_hash, id_prof))
                         conn.commit()
 
-                    # Gravando dados limpos e forçando string na sessão
-                    session['professor_id'] = str(id_prof)
+                    # [CORREÇÃO 3] Forçamos o ID a voltar a ser Inteiro puro
+                    session['professor_id'] = id_prof
                     session['professor_nome'] = str(nome_prof)
                     session.modified = True 
                     
-                    cursor.close()
-                    conn.close()
+                    # [CORREÇÃO 2] Fechamentos duplicados removidos daqui! Deixamos apenas o finally atuar.
                     return redirect('/dashboard')
                 else:
                     erro = "Senha incorreta!"
@@ -330,13 +147,13 @@ def login():
         except Exception as e:
             erro = f"Erro no banco: {str(e)}"
         finally:
+            # O finally garante que tudo fecha de forma limpa na hora certa
             if cursor:
                 cursor.close()
             if conn:
                 conn.close()
 
     return render_template('login.html', erro=erro)
-
 @app.route('/logout')
 def logout():
     session.clear()
