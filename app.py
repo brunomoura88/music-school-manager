@@ -76,15 +76,23 @@ app = Flask(__name__)
 # DEFINA UMA CHAVE FIXA E FORTE PARA AS SESSÕES NÃO CAÍREM NO RENDER
 app.secret_key = 'EstudioA_ChaveSecreta_Chaveirao_123!'
 
-# --- AJUSTE INTELIGENTE DE SESSÃO PARA O RENDER ---
-# Removemos o SESSION_COOKIE_SECURE fixo para o Proxy do Render não bloquear o cookie
-app.config['SESSION_COOKIE_HTTPONLY'] = True
-app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
-
-# Se estiver no Render, confiamos nos cabeçalhos de Proxy HTTPS deles
+# --- AJUSTE ABSOLUTO DE COOKIES PARA PRODUÇÃO (RENDER) ---
 if os.environ.get("DATABASE_URL"):
     from werkzeug.middleware.proxy_fix import ProxyFix
     app.wsgi_app = ProxyFix(app.wsgi_app, x_proto=1, x_host=1)
+    
+    # Configurações obrigatórias para o cookie prender no navegador via HTTPS do Render
+    app.config.update(
+        SESSION_COOKIE_SECURE=True,
+        SESSION_COOKIE_HTTPONLY=True,
+        SESSION_COOKIE_SAMESITE='None',  # Permite cross-site redirections de proxy de forma estável
+    )
+else:
+    app.config.update(
+        SESSION_COOKIE_SECURE=False,
+        SESSION_COOKIE_HTTPONLY=True,
+        SESSION_COOKIE_SAMESITE='Lax',
+    )
 
 # === RECRIADA A FUNÇÃO CORRETA PARA INICIALIZAR O BANCO ===
 def init_db():
@@ -181,23 +189,16 @@ def init_db():
     cursor.close()
     conn.close()
 
-# Executa a inicialização obrigatória do banco apenas no modo local
-# ao rodar diretamente com python app.py.
-# O Gunicorn não importa init_db() no import, evitando falhas de startup.
-
 def popular_dados_iniciais():
     conn = obter_conexao()
     cursor = conn.cursor()
 
-    # Garante que as disciplinas básicas existam
     disciplinas = [('Violão',), ('Guitarra',), ('Teclado',), ('Bateria',), ('Canto',), ('Contra-Baixo',)]
     cursor.executemany("INSERT INTO disciplinas (nome) VALUES (%s) ON CONFLICT (nome) DO NOTHING;", disciplinas)
 
-    # Garante que as salas básicas existam
     salas = [('Sala 01',), ('Sala 02',)]
     cursor.executemany("INSERT INTO salas (nome) VALUES (%s) ON CONFLICT (nome) DO NOTHING;", salas)
 
-    # CADASTRO REAL DE TODOS OS PROFESSORES DA ESCOLA
     professores = [
         ('Bruno Moura', '123', 'bruno', generate_password_hash('estudioa123')),
         ('Bruno Mota', '456', 'brunomota', generate_password_hash('estudioa123')),
@@ -222,12 +223,10 @@ def aplicar_migracoes():
     conn = obter_conexao()
     cursor = conn.cursor()
     
-    # Verifica se estamos usando SQLite para a função is_sqlite_conn nativa
     is_postgres = hasattr(conn, 'encoding') or conn.__class__.__name__ == 'Connection'
     id_auto = 'SERIAL PRIMARY KEY' if is_postgres else 'INTEGER PRIMARY KEY AUTOINCREMENT'
     real_type = "NUMERIC(10,2)" if is_postgres else "REAL"
     
-    # Tenta rodar as migrações prevenindo falhas no Postgres
     tabelas_colunas = [
         ("professores", "login TEXT"),
         ("professores", "senha TEXT"),
@@ -277,11 +276,9 @@ def aplicar_migracoes():
     conn.close()
 
 
-
 # ==========================================
 # ROTAS DO SISTEMA
 # ==========================================
-# ROTA DE LOGOUT: Para o professor sair com segurança e apagar o carimbo
 @app.route('/', methods=['GET', 'POST'])
 def login():
     erro = None
@@ -290,7 +287,7 @@ def login():
         conn = None
         cursor = None
         try:
-            usuario_input = request.form.get('cpf') # Pegamos o que foi digitado
+            usuario_input = request.form.get('cpf') 
             senha_input = request.form.get('senha')
 
             if usuario_input:
@@ -299,8 +296,7 @@ def login():
             conn = obter_conexao()
             cursor = conn.cursor()
 
-            # Buscamos diretamente pelo login puro, sem o operador OR que confunde o Postgres
-            cursor.execute("SELECT id, nome, senha FROM professores WHERE login = %s;", (usuario_input,))
+            cursor.execute("SELECT id, nome, senha FROM professores WHERE login = %s OR cpf = %s;", (usuario_input, usuario_input))
             professor = cursor.fetchone()
 
             if professor:
@@ -318,6 +314,7 @@ def login():
                         cursor.execute("UPDATE professores SET senha = %s WHERE id = %s;", (senha_com_hash, id_prof))
                         conn.commit()
 
+                    # Gravando dados limpos e forçando string na sessão
                     session['professor_id'] = str(id_prof)
                     session['professor_nome'] = str(nome_prof)
                     session.modified = True 
@@ -328,11 +325,10 @@ def login():
                 else:
                     erro = "Senha incorreta!"
             else:
-                # Se o banco não achar o usuário 'bruno'
-                erro = f"Usuário '{usuario_input}' não encontrado no banco de dados."
+                erro = f"Usuário '{usuario_input}' não encontrado."
                 
         except Exception as e:
-            erro = f"Erro no banco de dados: {str(e)}"
+            erro = f"Erro no banco: {str(e)}"
         finally:
             if cursor:
                 cursor.close()
@@ -340,11 +336,10 @@ def login():
                 conn.close()
 
     return render_template('login.html', erro=erro)
+
 @app.route('/logout')
 def logout():
-    # Limpa o carimbo da sessão, deslogando o usuário
     session.clear()
-    # Redireciona instantaneamente de volta para a tela de login (raiz '/')
     return redirect('/')
 
 @app.route('/dashboard')
@@ -358,7 +353,6 @@ def dashboard():
     conn = obter_conexao()
     cursor = conn.cursor()
 
-    # --- 1. CONTAR ALUNOS ATIVOS ---
     if nome_logado == 'Bruno Moura':
         cursor.execute("SELECT COUNT(*) AS total FROM alunos;")
     else:
@@ -366,13 +360,11 @@ def dashboard():
     
     resultado_alunos = cursor.fetchone()
     
-    # Extração Inteligente: Trata Dicionário (Postgres) ou Tupla (SQLite)
     if isinstance(resultado_alunos, dict):
         total_alunos = resultado_alunos['total']
     else:
         total_alunos = resultado_alunos[0] if resultado_alunos else 0
 
-    # --- 2. CONTAR AULAS DE HOJE ---
     dias_semana_pt = {
         0: 'Segunda', 1: 'Terça', 2: 'Quarta',
         3: 'Quinta', 4: 'Sexta', 5: 'Sábado', 6: 'Domingo'
@@ -395,7 +387,6 @@ def dashboard():
     cursor.close()
     conn.close()
 
-    # --- 3. DEFINIR MÊS/ANO ATUAL ---
     meses_ano = [
         "Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho",
         "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"
