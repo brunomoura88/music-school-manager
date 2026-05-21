@@ -113,7 +113,7 @@ def reset_professores():
     cursor = conn.cursor()
     
     try:
-        # 1. Limpa as tabelas antigas para evitar conflitos de colunas
+        # 1. Limpa as tabelas antigas para evitar conflitos de colunas ou lixo
         cursor.execute("DROP TABLE IF EXISTS professores;")
         cursor.execute("DROP TABLE IF EXISTS alunos;")
         cursor.execute("DROP TABLE IF EXISTS agenda;")
@@ -138,7 +138,7 @@ def reset_professores():
             );
         ''')
         
-        # 3. Criação da Tabela de Disciplinas e Salas (Evita quebras na listagem)
+        # 3. Criação da Tabela de Disciplinas e Salas
         cursor.execute(f"CREATE TABLE disciplinas (id {id_auto}, nome {text_type} UNIQUE NOT NULL);")
         cursor.execute(f"CREATE TABLE salas (id {id_auto}, nome {text_type} UNIQUE NOT NULL);")
         
@@ -168,19 +168,34 @@ def reset_professores():
             );
         ''')
         
-        # 6. Alimenta os dados iniciais do administrador absoluto
-        senha_criptografada = generate_password_hash('estudioa123')
-        cursor.execute('''
+        # 6. Alimenta os dados iniciais dos professores com senhas criptografadas com segurança
+        senha_padrao = generate_password_hash('estudioa123')
+        
+        professores_iniciais = [
+            ('Bruno Moura', '123', 'bruno', senha_padrao),
+            ('Bruno Mota', '456', 'brunomota', senha_padrao),
+            ('Raphael Russowsky', '789', 'raphael', senha_padrao),
+            ('Guilherme Martins', '101', 'guilherme', senha_padrao),
+            ('Beatriz Ribeiro', '202', 'beatriz', senha_padrao)
+        ]
+        
+        cursor.executemany('''
             INSERT INTO professores (nome, cpf, login, senha) 
             VALUES (%s, %s, %s, %s);
-        ''', ('Bruno Moura', '123', 'bruno', senha_criptografada))
+        ''', professores_iniciais)
         
-        # Popula dados mínimos para os seletores não virem vazios
+        # Popula as disciplinas da escola para os seletores do formulário
         cursor.execute("INSERT INTO disciplinas (nome) VALUES ('Violão');")
+        cursor.execute("INSERT INTO disciplinas (nome) VALUES ('Guitarra');")
+        cursor.execute("INSERT INTO disciplinas (nome) VALUES ('Teclado');")
+        cursor.execute("INSERT INTO disciplinas (nome) VALUES ('Canto');")
+        
+        # Popula as salas disponíveis para a grade da agenda
         cursor.execute("INSERT INTO salas (nome) VALUES ('Sala 01');")
+        cursor.execute("INSERT INTO salas (nome) VALUES ('Sala 02');")
         
         conn.commit()
-        mensagem = "✅ ESTRUTURA COMPLETA GERADA COM SUCESSO! Todas as tabelas prontas para a Dashboard."
+        mensagem = "✅ SISTEMA CARREGADO COM SUCESSO! Todos os professores e disciplinas estão ativos no Supabase."
     except Exception as e:
         mensagem = f"❌ Erro crítico na reestruturação: {str(e)}"
     finally:
