@@ -11,23 +11,18 @@ def is_sqlite_conn(conn):
     return conn.__class__.__module__.startswith('sqlite3')
 
 def obter_conexao():
-    # O Render define automaticamente esta variável na nuvem
     url_banco = os.environ.get("DATABASE_URL")
     
     if url_banco:
         import psycopg
         from psycopg.rows import dict_row
         
-        # Remove qualquer quebra de linha ou espaço que venha da variável do Render
         url_banco = url_banco.strip()
-        
         if url_banco.startswith("postgres://"):
             url_banco = url_banco.replace("postgres://", "postgresql://", 1)
             
-        # Conecta de forma limpa e direta
         return psycopg.connect(url_banco, row_factory=dict_row)
     else:
-        # Se estiver no seu computador, usa o seu SQLite local de sempre
         sqlite_conn = sqlite3.connect('estudio_a.db')
         sqlite_conn.row_factory = sqlite3.Row
 
@@ -71,25 +66,17 @@ def obter_conexao():
 
         return SQLiteConnectionWrapper(sqlite_conn)
 
+# --- INICIALIZAÇÃO DO APP E CONFIGURAÇÃO DE SESSÃO CRUCIAL ---
 app = Flask(__name__)
 
-@app.route('/bypass-login')
-def bypass_login():
-    # Forçamos a sessão a ligar com os seus dados diretos de administrador
-    session['professor_id'] = 1  # ou o seu ID correto
-    session['professor_nome'] = 'Bruno Moura'
-    session.modified = True
-    return redirect('/dashboard')
-
-# [CORREÇÃO 4] Secret key protegida por variável de ambiente
+# Secret key protegida por variável de ambiente
 app.secret_key = os.environ.get("SECRET_KEY", "EstudioA_ChaveSecreta_Chaveirao_123!")
 
-# --- AJUSTE INTELIGENTE DE SESSÃO PARA O RENDER ---
+# Ajuste de Cookies aplicado IMEDIATAMENTE após a criação do app
 if os.environ.get("DATABASE_URL"):
     from werkzeug.middleware.proxy_fix import ProxyFix
     app.wsgi_app = ProxyFix(app.wsgi_app, x_proto=1, x_host=1)
     
-    # [CORREÇÃO 1] Configuração recomendada com SameSite='Lax'
     app.config.update(
         SESSION_COOKIE_SECURE=True,
         SESSION_COOKIE_HTTPONLY=True,
@@ -105,6 +92,14 @@ else:
 # ==========================================
 # ROTAS DO SISTEMA
 # ==========================================
+
+@app.route('/bypass-login')
+def bypass_login():
+    session['professor_id'] = 1  
+    session['professor_nome'] = 'Bruno Moura'
+    session.modified = True
+    return redirect('/dashboard')
+
 @app.route('/', methods=['GET', 'POST'])
 def login():
     erro = None
@@ -140,12 +135,10 @@ def login():
                         cursor.execute("UPDATE professores SET senha = %s WHERE id = %s;", (senha_com_hash, id_prof))
                         conn.commit()
 
-                    # [CORREÇÃO 3] Forçamos o ID a voltar a ser Inteiro puro
                     session['professor_id'] = id_prof
                     session['professor_nome'] = str(nome_prof)
                     session.modified = True 
                     
-                    # [CORREÇÃO 2] Fechamentos duplicados removidos daqui! Deixamos apenas o finally atuar.
                     return redirect('/dashboard')
                 else:
                     erro = "Senha incorreta!"
@@ -155,13 +148,13 @@ def login():
         except Exception as e:
             erro = f"Erro no banco: {str(e)}"
         finally:
-            # O finally garante que tudo fecha de forma limpa na hora certa
             if cursor:
                 cursor.close()
             if conn:
                 conn.close()
 
     return render_template('login.html', erro=erro)
+
 @app.route('/logout')
 def logout():
     session.clear()
@@ -227,9 +220,7 @@ def dashboard():
         aulas_hoje=aulas_hoje,
         competencia=competencia_atual
     )
-# ==========================================
-# ROTAS DE ALUNOS (COM EXCLUSÃO)
-# ==========================================
+
 @app.route('/alunos', methods=['GET', 'POST'])
 def alunos():
     if 'professor_id' not in session:
@@ -241,7 +232,6 @@ def alunos():
     conn = obter_conexao()
     cursor = conn.cursor()
 
-    # 1. PROCESSAR CADASTRO DE NOVO ALUNO (POST)
     if request.method == 'POST':
         nome = request.form.get('nome')
         cpf = request.form.get('cpf')
@@ -251,14 +241,12 @@ def alunos():
         horario_aula = request.form.get('horario_aula')
         id_disciplina = request.form.get('id_disciplina')
         valor_mensalidade = request.form.get('valor')
-        dia_semana = request.form.get('dia_semana') # Mantém o dia que já tinhas
+        dia_semana = request.form.get('dia_semana') 
         
-        # NOVOS CAMPOS CAPTURADOS DO TEU FORMULÁRIO:
         cpf_rg = request.form.get('cpf_rg') if request.form.get('cpf_rg') else request.form.get('cpf')
         endereco = request.form.get('endereco')
         dia_vencimento = request.form.get('dia_vencimento')
         
-        # VÍNCULO AUTOMÁTICO DO PROFESSOR LOGADO
         id_professor_vinc = id_logado 
 
         cursor.execute('''
@@ -267,13 +255,9 @@ def alunos():
         ''', (nome, id_disciplina, valor_mensalidade, dia_semana, id_professor_vinc, cpf_rg, endereco, dia_vencimento))
         
         conn.commit()
-        conn.close() # Lembra-te de fechar a conexão antes do redirect
+        conn.close() 
         return redirect('/alunos')
 
-    # 2. LISTAGEM DINÂMICA DE ALUNOS (GET)
-    # REGRA DE ADMINISTRAÇÃO: Bruno Moura (Supondo que seu ID seja 1) vê tudo.
-    # Se você quiser usar o seu nome em vez do ID para garantir, fazemos a checagem por nome:
-    # 2. LISTAGEM DINÂMICA DE ALUNOS (GET)
     if nome_logado == 'Bruno Moura':
         cursor.execute('''
             SELECT al.id, al.nome, al.vencimento_mensalidade, al.valor_mensalidade, p.nome, d.nome
@@ -292,18 +276,15 @@ def alunos():
         
     alunos_lista = cursor.fetchall()
 
-    # Buscar disciplinas para preencher o campo Select do formulário
     cursor.execute("SELECT id, nome FROM disciplinas;")
     disciplinas_lista = cursor.fetchall()
 
-    # Buscar professores para preencher o select do formulário
     cursor.execute("SELECT id, nome FROM professores;")
     professores_lista = cursor.fetchall()
 
     conn.close()
-
     return render_template('alunos.html', alunos=alunos_lista, disciplinas=disciplinas_lista, professores=professores_lista)
-# NOVA ROTA: Rota para deletar o aluno do sistema
+
 @app.route('/excluir_aluno/<int:id>')
 def excluir_aluno(id):
     conn = obter_conexao()
@@ -322,9 +303,7 @@ def editar_aluno(id_aluno):
     conn = obter_conexao()
     cursor = conn.cursor()
 
-    # --- FORMATO GET: CARREGA OS DADOS ATUAIS NO FORMULÁRIO ---
     if request.method == 'GET':
-        # Busca os dados cadastrais do aluno específico
         cursor.execute('''
             SELECT id, nome, cpf_rg, endereco, vencimento_mensalidade, valor_mensalidade, id_disciplina, id_professor 
             FROM alunos 
@@ -336,7 +315,6 @@ def editar_aluno(id_aluno):
             conn.close()
             return "Aluno não encontrado!", 404
 
-        # Busca as listas de disciplinas e professores para preencher os campos de seleção (Selects)
         cursor.execute("SELECT id, nome FROM disciplinas;")
         disciplinas_lista = cursor.fetchall()
 
@@ -346,7 +324,6 @@ def editar_aluno(id_aluno):
         conn.close()
         return render_template('editar_aluno.html', aluno=aluno_dados, disciplinas=disciplinas_lista, professores=professores_lista)
 
-    # --- FORMATO POST: SALVA AS ALTERAÇÕES NO BANCO ---
     elif request.method == 'POST':
         nome = request.form.get('nome')
         cpf_rg = request.form.get('cpf')
@@ -356,7 +333,6 @@ def editar_aluno(id_aluno):
         id_disciplina = request.form.get('id_disciplina')
         id_professor = request.form.get('id_professor')
 
-        # Faz a atualização cirúrgica usando o UPDATE
         cursor.execute('''
             UPDATE alunos 
             SET nome = %s, cpf_rg = %s, endereco = %s, vencimento_mensalidade = %s, valor_mensalidade = %s, id_disciplina = %s, id_professor = %s
@@ -369,7 +345,6 @@ def editar_aluno(id_aluno):
 
 @app.route('/agenda', methods=['GET', 'POST'])
 def agenda():
-    # PROTEÇÃO: Se não estiver logado, chuta para a tela de login
     if 'professor_id' not in session:
         return redirect('/')
 
@@ -380,37 +355,30 @@ def agenda():
 
     erro = None
 
-    # 1. PROCESSAR AGENDAMENTO (POST)
     if request.method == 'POST':
         id_sala = request.form.get('id_sala')
-        # SEGURANÇA: Em vez de pegar o id do professor do formulário, 
-        # pegamos direto da sessão do cara que está logado!
         id_professor = session['professor_id']
         id_aluno = request.form.get('id_aluno')
         dia_semana = request.form.get('dia_semana')
         horario = request.form.get('horario')
         
-        # NOVOS CAMPOS: Pegando as informações de tipo e data do formulário
         tipo_aula = request.form.get('tipo_aula', 'Fixa')
         data_aula = request.form.get('data_aula')
         
-        # Se for aula fixa, limpa a data para não sujeirar o banco
         if tipo_aula == 'Fixa':
             data_aula = None
 
         try:
-            # AJUSTE NO INSERT: Agora gravando tipo_aula e data_aula
             cursor.execute('''
                 INSERT INTO agenda (id_sala, id_professor, id_aluno, dia_semana, horario, tipo_aula, data_aula)
                 VALUES (%s, %s, %s, %s, %s, %s, %s);
                 ''', (id_sala, id_professor, id_aluno, dia_semana, horario, tipo_aula, data_aula))
             conn.commit()
             conn.close()
-            return redirect(f'/agenda?sala_id={id_sala}') # Volta mantendo a sala aberta
+            return redirect(f'/agenda?sala_id={id_sala}')
         except Exception:
-            erro = "Conflito de Horário! A sala ou o professor já possuem aula agendada neste dia e horário."
+            erro = "Conflito de Horário!"
 
-    # 2. MONTAR A GRADE HORÁRIA (GET)
     sala_selecionada = request.args.get('sala_id', 1, type=int)
 
     cursor.execute("SELECT id, nome FROM salas;")
@@ -422,11 +390,8 @@ def agenda():
     cursor.execute("SELECT id, nome FROM alunos;")
     all_alunos = cursor.fetchall()
 
-    # INTELIGÊNCIA DO FILTRO: Pegamos a data de hoje (Ex: '2026-05-18')
     data_hoje = datetime.now().strftime('%Y-%m-%d')
 
-    # AJUSTE NO SELECT: Buscamos os agendamentos da sala conectando com Aluno e Professor,
-    # mas aplicamos o filtro para ignorar Recuperações que já passaram de hoje!
     cursor.execute('''
         SELECT age.dia_semana, age.horario, al.nome, p.nome, d.nome, age.tipo_aula
         FROM agenda age
@@ -438,30 +403,23 @@ def agenda():
     ''', (sala_selecionada, data_hoje))
     agendamentos_banco = cursor.fetchall()
 
-    # Mapear os agendamentos em um dicionário Python para busca rápida no HTML
     mapa_agenda = {}
-    # Adicionamos 'tipo' no laço para capturar o tipo_aula vindo do banco
-    for dia, hora, num_aluno, num_prof, num_curso, tipo in agendamentos_banco:
+    for row in agendamentos_banco:
+        if isinstance(row, dict):
+            dia, hora, num_aluno, num_prof, num_curso, tipo = row['dia_semana'], row['horario'], row['nome'], row[3], row[4], row['tipo_aula']
+        else:
+            dia, hora, num_aluno, num_prof, num_curso, tipo = row[0], row[1], row[2], row[3], row[4], row[5]
+            
         hora_formatada = hora[:5]
         
-        # --- LÓGICA DE OCULTAR RECUPERAÇÃO QUE JÁ PASSOU ---
         if tipo == 'Recuperacao':
-            # Mapeamento para descobrir o dia de hoje em texto
-            dias_semana_pt = {
-                0: 'Segunda', 1: 'Terça', 2: 'Quarta',
-                3: 'Quinta', 4: 'Sexta', 5: 'Sábado', 6: 'Domingo'
-            }
+            dias_semana_pt = {0: 'Segunda', 1: 'Terça', 2: 'Quarta', 3: 'Quinta', 4: 'Sexta', 5: 'Sábado', 6: 'Domingo'}
             dia_hoje_pt = dias_semana_pt[datetime.now().weekday()]
-            
-            # Se a aula de recuperação for marcada para o dia de hoje
             if dia == dia_hoje_pt:
                 hora_agora = datetime.now().strftime('%H:%M')
-                # Se o relógio já passou da hora da aula (ex: 22:30 > 17:00), ignora e pula!
                 if hora_agora > hora_formatada:
                     continue 
 
-        # # TOQUE VISUAL EXTRA: Se for recuperação, adicionamos um aviso no texto da grade!
-        # Descobre se o professor desta aula específica é o utilizador logado
         eh_minha_aula = (num_prof == session['professor_nome'])
         classe_destaque = "aula-minha-card" if eh_minha_aula else "aula-outra-card"
 
@@ -470,18 +428,15 @@ def agenda():
         else:
             texto_aula = f"{num_aluno} ({num_curso})"
             
-        # Adiciona o nome do professor em baixo apenas se não for tua, para poupar espaço visual
         if not eh_minha_aula:
             texto_aula += f" <br><small class='text-muted'>Prof. {num_prof}</small>"
 
-        # Guardamos o conteúdo envelopado numa div com a classe correspondente
         mapa_agenda[(dia, hora_formatada)] = f"<div class='{classe_destaque}'>{texto_aula}</div>"
-    # Estruturas fixas para a matriz
+
     dias_semana = ['Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado']
-    horarios_grade = [f"{h:02d}:00" for h in range(8, 22)] # Das 08:00 às 21:00
+    horarios_grade = [f"{h:02d}:00" for h in range(8, 22)] 
 
-    conn.close() # Garante que fecha a conexão se passar pelo GET direto
-
+    conn.close()
     return render_template(
         'agenda.html', 
         salas=all_salas, 
@@ -492,13 +447,10 @@ def agenda():
         horarios=horarios_grade,
         sala_selecionada=sala_selecionada,
         erro=erro,
-        id_professor_logado=session['professor_id'], # Enviando o ID do usuário atual
+        id_professor_logado=session['professor_id'], 
         nome_professor=session['professor_nome']
     )
 
-
-
-# NOVA ROTA: Muda o status do aluno para Pago ou cancela a baixa
 @app.route('/baixar_pagamento/<int:id>/<int:status_pago>')
 def baixar_pagamento(id, status_pago):
     conn = obter_conexao()
@@ -508,84 +460,6 @@ def baixar_pagamento(id, status_pago):
     conn.close()
     return redirect('/financeiro')
 
-@app.route('/criar_senhas_professores')
-def criar_senhas_professores():
-    conn = obter_conexao()
-    cursor = conn.cursor()
-    
-    # FORÇA A CRIAÇÃO DAS COLUNAS CASO ELAS NÃO EXISTAM AINDA
-    try:
-        cursor.execute("ALTER TABLE professores ADD COLUMN login TEXT;")
-        cursor.execute("ALTER TABLE professores ADD COLUMN senha TEXT;")
-        conn.commit()
-    except Exception:
-        pass # Se as colunas já existirem, ignora o erro e segue em frente
-        
-    # Daqui para baixo continua o seu código normal...
-    senha_padrao_hash = generate_password_hash('estudioa123')
-    
-    professores_config = {
-        'Bruno Moura': 'bruno',
-        'Bruno Mota': 'brunomota',
-        'Raphael Russowsky': 'raphael',
-        'Guilherme Martins': 'guilherme',
-        'Beatriz Ribeiro': 'beatriz'
-    }
-    
-    mensagens = []
-    
-    for nome_prof, login_prof in professores_config.items():
-        # Verificamos se o professor existe no banco (usando LIKE para evitar problemas de acentuação)
-        cursor.execute("SELECT id FROM professores WHERE nome LIKE %s;", (f"%{nome_prof}%",))
-        resultado = cursor.fetchone()
-        
-        if resultado:
-            id_prof = resultado[0]
-            # Atualiza o login e a senha criptografada do professor
-            cursor.execute('''
-                UPDATE professores 
-                SET login = %s, senha = %s 
-                WHERE id = %s;
-            ''', (login_prof, senha_padrao_hash, id_prof))
-            mensagens.append(f"✅ Professor {nome_prof} atualizado! Login: {login_prof}")
-        else:
-            mensagens.append(f"❌ Professor {nome_prof} não foi encontrado no banco de dados.")
-            
-    conn.commit()
-    conn.close()
-    
-    # Retorna um relatório simples na tela do navegador
-    return "<br>".join(mensagens) + "<br><br><strong>Pronto! Todos os professores foram configurados com a senha padrão: estudioa123</strong>"
-@app.route('/atualizar_banco_agenda')
-def atualizar_banco_agenda():
-    conn = obter_conexao()
-    cursor = conn.cursor()
-    
-    # Adiciona as novas colunas necessárias para a inteligência da agenda
-    try:
-        cursor.execute("ALTER TABLE agenda ADD COLUMN tipo_aula TEXT DEFAULT 'Fixa';")
-        cursor.execute("ALTER TABLE agenda ADD COLUMN data_aula TEXT;")
-        conn.commit()
-        mensagem = "✅ Banco de dados atualizado com sucesso! Colunas 'tipo_aula' e 'data_aula' criadas."
-    except Exception:
-        mensagem = "⚠️ As colunas já existem ou o banco já estava atualizado."
-        
-    conn.close()
-    return f"<h3>{mensagem}</h3><br><a href='/dashboard'>Voltar para o Dashboard</a>"
-
-@app.route('/atualizar_banco_alunos')
-def atualizar_banco_alunos():
-    conn = obter_conexao()
-    cursor = conn.cursor()
-    try:
-        cursor.execute("ALTER TABLE alunos ADD COLUMN id_professor INTEGER REFERENCES professores(id);")
-        conn.commit()
-        mensagem = "✅ Tabela 'alunos' atualizada! Coluna 'id_professor' criada."
-    except Exception:
-        mensagem = "⚠️ A coluna 'id_professor' já existe na tabela de alunos."
-    conn.close()
-    return f"<h3>{mensagem}</h3><br><a href='/dashboard'>Voltar para o Dashboard</a>"
-
 @app.route('/aluno/contrato/<int:id_aluno>')
 def gerar_contrato_aluno(id_aluno):
     if 'professor_id' not in session:
@@ -594,7 +468,6 @@ def gerar_contrato_aluno(id_aluno):
     conn = obter_conexao()
     cursor = conn.cursor()
     
-    # Adicionámos cpf_rg, endereco e dia_vencimento no SELECT
     cursor.execute('''
         SELECT al.id, al.nome, al.id_disciplina, d.nome, al.valor_mensalidade, al.cpf_rg, al.endereco, al.dia_vencimento
         FROM alunos al
@@ -610,41 +483,6 @@ def gerar_contrato_aluno(id_aluno):
 
     return render_template('contrato.html', aluno=aluno_dados)
 
-@app.route('/atualizar_banco_contrato_completo')
-def atualizar_banco_contrato_completo():
-    conn = obter_conexao()
-    cursor = conn.cursor()
-    
-    mensagens = []
-    
-    # Tenta adicionar cpf_rg (caso não exista)
-    try:
-        cursor.execute("ALTER TABLE alunos ADD COLUMN cpf_rg TEXT;")
-        mensagens.append("✅ Coluna 'cpf_rg' criada.")
-    except Exception:
-        mensagens.append("⚠️ Coluna 'cpf_rg' já existia.")
-        
-    # Tenta adicionar endereco
-    try:
-        cursor.execute("ALTER TABLE alunos ADD COLUMN endereco TEXT;")
-        mensagens.append("✅ Coluna 'endereco' criada.")
-    except Exception:
-        mensagens.append("⚠️ Coluna 'endereco' já existia.")
-        
-    # Tenta adicionar dia_vencimento
-    try:
-        cursor.execute("ALTER TABLE alunos ADD COLUMN dia_vencimento INTEGER;")
-        mensagens.append("✅ Coluna 'dia_vencimento' criada.")
-    except Exception:
-        mensagens.append("⚠️ Coluna 'dia_vencimento' já existia.")
-        
-    conn.commit()
-    conn.close()
-    
-    resultado = "<br>".join(mensagens)
-    return f"<h3>Status da Migração:</h3><p>{resultado}</p><br><a href='/alunos'>Ir para Alunos</a>"
-
-
 @app.route('/financeiro', methods=['GET', 'POST'])
 def financeiro():
     if 'professor_id' not in session:
@@ -652,7 +490,6 @@ def financeiro():
         
     nome_logado = session['professor_nome']
     
-    # 1. PEGAR A COMPETÊNCIA (Se o usuário filtrou, usa o do formulário. Se não, usa o mês atual)
     if request.method == 'POST' and request.form.get('competencia_filtro'):
         competencia_atual = request.form.get('competencia_filtro')
     else:
@@ -661,13 +498,16 @@ def financeiro():
     conn = obter_conexao()
     cursor = conn.cursor()
 
-    # --- GERADOR AUTOMÁTICO DE MENSALIDADES ---
-    # Só gera mensalidades automaticamente se for o mês corrente (para não bagunçar o histórico)
     if competencia_atual == datetime.now().strftime('%m/%Y'):
         cursor.execute("SELECT id, valor_mensalidade FROM alunos;")
         all_alunos = cursor.fetchall()
         
-        for id_aluno, valor in all_alunos:
+        for aluno in all_alunos:
+            if isinstance(aluno, dict):
+                id_aluno, valor = aluno['id'], aluno['valor_mensalidade']
+            else:
+                id_aluno, valor = aluno[0], aluno[1]
+                
             cursor.execute("SELECT id FROM mensalidades WHERE id_aluno = %s AND competencia = %s;", (id_aluno, competencia_atual))
             existe = cursor.fetchone()
             if not existe:
@@ -677,15 +517,19 @@ def financeiro():
                     ''', (id_aluno, competencia_atual, valor))
         conn.commit()
 
-    # --- LISTAR OS MESES DISPONÍVEIS PARA O SELETOR (Histórico de cobranças existentes) ---
     cursor.execute("SELECT DISTINCT competencia FROM mensalidades ORDER BY id DESC;")
-    meses_disponiveis = [row[0] for row in cursor.fetchall()]
+    meses_banco = cursor.fetchall()
     
-    # Garante que o mês atual sempre esteja na lista do seletor
+    meses_disponiveis = []
+    for r in meses_banco:
+        if isinstance(r, dict):
+            meses_disponiveis.append(r['competencia'])
+        else:
+            meses_disponiveis.append(r[0])
+    
     if datetime.now().strftime('%m/%Y') not in meses_disponiveis:
         meses_disponiveis.insert(0, datetime.now().strftime('%m/%Y'))
 
-    # --- BUSCAR AS MENSALIDADES DA COMPETÊNCIA ESCOLHIDA ---
     if nome_logado == 'Bruno Moura':
         cursor.execute('''
             SELECT m.id, al.nome, m.competencia, m.valor_devido, m.status, m.data_pagamento, d.nome
@@ -719,11 +563,9 @@ def pagar_mensalidade(id_mensalidade):
         return redirect('/')
 
     data_hoje = datetime.now().strftime('%d/%m/%Y')
-
     conn = obter_conexao()
     cursor = conn.cursor()
     
-    # Atualiza o status e insere a data do pagamento
     cursor.execute('''
         UPDATE mensalidades 
         SET status = 'Pago', data_pagamento = %s 
@@ -732,13 +574,121 @@ def pagar_mensalidade(id_mensalidade):
     
     conn.commit()
     conn.close()
+    return redirect('/financeiro')
+
+@app.route('/financeiro', methods=['GET', 'POST'])
+def financeiro():
+    if 'professor_id' not in session:
+        return redirect('/')
+        
+    nome_logado = session['professor_nome']
     
+    if request.method == 'POST' and request.form.get('competencia_filtro'):
+        competencia_atual = request.form.get('competencia_filtro')
+    else:
+        competencia_atual = datetime.now().strftime('%m/%Y')
+
+    conn = obter_conexao()
+    cursor = conn.cursor()
+
+    if competencia_atual == datetime.now().strftime('%m/%Y'):
+        cursor.execute("SELECT id, valor_mensalidade FROM alunos;")
+        all_alunos = cursor.fetchall()
+        
+        for aluno in all_alunos:
+            if isinstance(aluno, dict):
+                id_aluno, valor = aluno['id'], aluno['valor_mensalidade']
+            else:
+                id_aluno, valor = aluno[0], aluno[1]
+                
+            cursor.execute("SELECT id FROM mensalidades WHERE id_aluno = %s AND competencia = %s;", (id_aluno, competencia_atual))
+            existe = cursor.fetchone()
+            if not existe:
+                cursor.execute('''
+                    INSERT INTO mensalidades (id_aluno, competencia, valor_devido, status)
+                        VALUES (%s, %s, %s, 'Pendente');
+                    ''', (id_aluno, competencia_atual, valor))
+        conn.commit()
+
+    cursor.execute("SELECT DISTINCT competencia FROM mensalidades ORDER BY id DESC;")
+    meses_banco = cursor.fetchall()
+    
+    meses_disponiveis = []
+    for r in meses_banco:
+        if isinstance(r, dict):
+            meses_disponiveis.append(r['competencia'])
+        else:
+            meses_disponiveis.append(r[0])
+    
+    if datetime.now().strftime('%m/%Y') not in meses_disponiveis:
+        meses_disponiveis.insert(0, datetime.now().strftime('%m/%Y'))
+
+    if nome_logado == 'Bruno Moura':
+        cursor.execute('''
+            SELECT m.id, al.nome, m.competencia, m.valor_devido, m.status, m.data_pagamento, d.nome
+            FROM mensalidades m
+            JOIN alunos al ON m.id_aluno = al.id
+            JOIN disciplinas d ON al.id_disciplina = d.id
+            WHERE m.competencia = %s;
+        ''', (competencia_atual,))
+    else:
+        cursor.execute('''
+            SELECT m.id, al.nome, m.competencia, m.valor_devido, m.status, m.data_pagamento, d.nome
+            FROM mensalidades m
+            JOIN alunos al ON m.id_aluno = al.id
+            JOIN disciplinas d ON al.id_disciplina = d.id
+            WHERE m.competencia = %s AND al.id_professor = %s;
+        ''', (competencia_atual, session['professor_id']))
+        
+    lista_mensalidades = cursor.fetchall()
+    conn.close()
+
+    return render_template(
+        'financeiro.html', 
+        mensalidades=lista_mensalidades, 
+        competencia=competencia_atual,
+        meses_opcoes=meses_disponiveis
+    )
+
+@app.route('/financeiro/pagar/<int:id_mensalidade>')
+def pagar_mensalidade(id_mensalidade):
+    if 'professor_id' not in session:
+        return redirect('/')
+
+    data_hoje = datetime.now().strftime('%d/%m/%Y')
+    conn = obter_conexao()
+    cursor = conn.cursor()
+    
+    cursor.execute('''
+        UPDATE mensalidades 
+        SET status = 'Pago', data_pagamento = %s 
+        WHERE id = %s;
+    ''', (data_hoje, id_mensalidade))
+    
+    conn.commit()
+    conn.close()
+    return redirect('/financeiro')
+
+@app.route('/financeiro/pagar/<int:id_mensalidade>')
+def pagar_mensalidade(id_mensalidade):
+    if 'professor_id' not in session:
+        return redirect('/')
+
+    data_hoje = datetime.now().strftime('%d/%m/%Y')
+    conn = obter_conexao()
+    cursor = conn.cursor()
+    
+    cursor.execute('''
+        UPDATE mensalidades 
+        SET status = 'Pago', data_pagamento = %s 
+        WHERE id = %s;
+    ''', (data_hoje, id_mensalidade))
+    
+    conn.commit()
+    conn.close()
     return redirect('/financeiro')
 
 if __name__ == '__main__':
     import os
     porta = int(os.environ.get("PORT", 5000))
     app.run(host='0.0.0.0', port=porta)
-
-
-    
