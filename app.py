@@ -703,6 +703,54 @@ def pagar_mensalidade(id_mensalidade):
     conn.close()
     return redirect("/financeiro")
 
+@app.route("/financeiro", methods=["GET", "POST"])
+def financeiro():
+    if "professor_id" not in session: return redirect("/")
+    nome_logado = session["professor_nome"]
+    competencia_atual = request.form.get("competencia_filtro") if request.method == "POST" and request.form.get("competencia_filtro") else datetime.now().strftime("%m/%Y")
+
+    conn = obter_conexao(); cursor = conn.cursor()
+    is_postgres = hasattr(conn, "encoding") or conn.__class__.__name__ == "Connection"
+    id_auto = "SERIAL PRIMARY KEY" if is_postgres else "INTEGER PRIMARY KEY AUTOINCREMENT"
+    text_type = "VARCHAR(255)" if is_postgres else "TEXT"
+    real_type = "NUMERIC(10,2)" if is_postgres else "REAL"
+
+    try:
+        cursor.execute(f"CREATE TABLE IF NOT EXISTS mensalidades (id {id_auto}, id_aluno INTEGER NOT NULL, competencia {text_type} NOT NULL, valor_devido {real_type}, status {text_type} DEFAULT 'Pendente', data_pagamento {text_type});")
+        conn.commit()
+    except Exception: pass
+
+    if competencia_atual == datetime.now().strftime("%m/%Y"):
+        cursor.execute("SELECT id, valor_mensalidade FROM alunos;")
+        for aluno in cursor.fetchall():
+            id_aluno, valor = (aluno["id"], aluno["valor_mensalidade"]) if isinstance(aluno, dict) else (aluno[0], aluno[1])
+            if valor is None: valor = 0.0
+            cursor.execute("SELECT id FROM mensalidades WHERE id_aluno = %s AND competencia = %s;", (id_aluno, competencia_atual))
+            if not cursor.fetchone():
+                cursor.execute("INSERT INTO mensalidades (id_aluno, competencia, valor_devido, status) VALUES (%s, %s, %s, 'Pendente');", (id_aluno, competencia_atual, valor))
+        conn.commit()
+
+    cursor.execute("SELECT DISTINCT competencia FROM mensalidades ORDER BY competencia DESC;")
+    meses_disponiveis = [r["competencia"] if isinstance(r, dict) else r[0] for r in cursor.fetchall()]
+    if datetime.now().strftime("%m/%Y") not in meses_disponiveis: meses_disponiveis.insert(0, datetime.now().strftime("%m/%Y"))
+
+    if nome_logado == "Bruno Moura":
+        cursor.execute("SELECT m.id, al.nome as aluno_nome, m.competencia, m.valor_devido, m.status, m.data_pagamento, d.nome as disciplina_nome FROM mensalidades m JOIN alunos al ON m.id_aluno = al.id LEFT JOIN disciplinas d ON al.id_disciplina = d.id WHERE m.competencia = %s;", (competencia_atual,))
+    else:
+        cursor.execute("SELECT m.id, al.nome as aluno_nome, m.competencia, m.valor_devido, m.status, m.data_pagamento, d.nome as disciplina_nome FROM mensalidades m JOIN alunos al ON m.id_aluno = al.id LEFT JOIN disciplinas d ON al.id_disciplina = d.id WHERE m.competencia = %s AND al.id_professor = %s;", (competencia_atual, session["professor_id"]))
+
+    lista_mensalidades = []
+    for row in cursor.fetchall():
+        if isinstance(row, dict):
+            v_devido = row.get("valor_devido") if row.get("valor_devido") is not None else 0.0
+            lista_mensalidades.append({"id": row.get("id"), "aluno_nome": row.get("aluno_nome"), "mes_competencia": row.get("competencia"), "valor": v_devido, "status": row.get("status"), "data_pagamento": row.get("data_pagamento"), "disciplina_nome": row.get("disciplina_nome")})
+        else:
+            v_devido = row[3] if row[3] is not None else 0.0
+            lista_mensalidades.append({"id": row[0], "aluno_nome": row[1], "mes_competencia": row[2], "valor": v_devido, "status": row[4], "data_pagamento": row[5], "disciplina_nome": row[6]})
+
+    cursor.close(); conn.close()
+    return render_template("financeiro.html", mensalidades=lista_mensalidades, competencia=competencia_atual, meses_opcoes=meses_disponiveis)
+
 
 if __name__ == "__main__":
     porta = int(os.environ.get("PORT", 5000))
