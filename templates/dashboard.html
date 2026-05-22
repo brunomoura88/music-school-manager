@@ -97,22 +97,22 @@
 </head>
 <body>
 
-   <nav class="navbar navbar-dark bg-transparent px-4 py-3">
-      <div class="container-fluid d-flex align-items-center justify-content-between">
-        
-        <a class="navbar-brand p-0" href="/dashboard">
-          <img src="/static/img/logo.png" alt="Estúdio A" height="40" style="object-fit: contain" />
-        </a>
-        
-        <div class="d-flex align-items-center gap-3">
-          <div class="text-white-50 small fw-bold d-flex align-items-center bg-dark px-3 py-2 rounded border border-secondary" style="font-size: 13px;">
-            <i class="bi bi-person-circle text-warning me-2" style="font-size: 16px;"></i>
-            Olá, <span class="text-white ms-1">{{ nome_professor }}</span>
-          </div>          
-          <a href="/logout" class="btn btn-outline-danger btn-sm px-3 fw-bold">Sair</a>
-        </div>
-          
-    </nav>
+    <nav class="navbar navbar-dark bg-transparent px-4 py-3">
+        <div class="container-fluid d-flex align-items-center justify-content-between">
+            
+            <a class="navbar-brand p-0" href="/dashboard">
+                <img src="/static/img/logo.png" alt="Estúdio A" height="40" style="object-fit: contain" />
+            </a>
+            
+            <div class="d-flex align-items-center gap-3">
+                <div class="text-white-50 small fw-bold d-flex align-items-center bg-dark px-3 py-2 rounded border border-secondary" style="font-size: 13px;">
+                    <i class="bi bi-person-circle text-warning me-2" style="font-size: 16px;"></i>
+                    Olá, <span class="text-white ms-1">{{ nome_professor }}</span>
+                </div>          
+                <a href="/logout" class="btn btn-outline-danger btn-sm px-3 fw-bold">Sair</a>
+            </div>
+
+        </div> </nav>
 
     <div class="container main-container">
         
@@ -142,17 +142,20 @@
             </div>
         </div>
 
-       <div class="resumo-painel shadow-lg">
+        <div class="resumo-painel shadow-lg">
             <div class="row text-center">
                 <div class="col-md-4 border-end border-secondary resumo-item">
                     <h5><i class="bi bi-people me-2"></i>Alunos Ativos</h5>
-                    <p>{{ total_alunos }}</p> </div>
+                    <p>{{ total_alunos }}</p> 
+                </div>
                 <div class="col-md-4 border-end border-secondary resumo-item">
                     <h5><i class="bi bi-clock-history me-2"></i>Aulas Hoje</h5>
-                    <p>{{ status_aulas_hoje if aulas_hoje == 0 else aulas_hoje }}</p> </div>
+                    <p>{{ status_aulas_hoje if aulas_hoje == 0 else aulas_hoje }}</p> 
+                </div>
                 <div class="col-md-4 resumo-item">
                     <h5><i class="bi bi-currency-dollar me-2"></i>Competência</h5>
-                    <p>{{ competencia }}</p> </div>
+                    <p>{{ competencia }}</p> 
+                </div>
             </div>
         </div>
 
