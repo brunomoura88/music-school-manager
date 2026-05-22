@@ -237,6 +237,10 @@ def dashboard():
     if "professor_id" not in session:
         return redirect("/")
     id_logado, nome_logado = session["professor_id"], session["professor_nome"]
+
+    # Pega o nome do professor logado na sessão
+    nome_professor = session.get("professor_nome", "Professor")
+    
     conn = obter_conexao()
     cursor = conn.cursor()
 
@@ -305,6 +309,7 @@ def dashboard():
         nome_professor=nome_logado,
         total_alunos=total_alunos,
         aulas_hoje=aulas_hoje,
+        nome_professor=nome_professor,
         competencia=competencia_atual,
     )
 
