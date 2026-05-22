@@ -672,6 +672,7 @@ def pagar_mensalidade(id_mensalidade):
     conn.commit()
     conn.close()
     return redirect("/financeiro")
+    
 @app.route("/financeiro", methods=["GET", "POST"])
 def financeiro():
     if "professor_id" not in session: return redirect("/")
@@ -703,29 +704,35 @@ def financeiro():
     meses_disponiveis = [r["competencia"] if isinstance(r, dict) else r[0] for r in cursor.fetchall()]
     if datetime.now().strftime("%m/%Y") not in meses_disponiveis: meses_disponiveis.insert(0, datetime.now().strftime("%m/%Y"))
 
-    # --- LISTA UNIFICADA DE GESTORES QUE ENXERGAM TODOS OS ALUNOS ---
+    # --- LISTA UNIFICADA DE GESTORES ---
     gestores_escola = ["Bruno Moura", "Bruno Mota", "Raphael Russowsky"]
 
+    # Buscamos os professores para alimentar o filtro do HTML
+    cursor.execute("SELECT nome FROM professores ORDER BY nome;")
+    todos_professores = [p["nome"] if isinstance(p, dict) else p[0] for p in cursor.fetchall()]
+
     if nome_logado in gestores_escola:
+        # Adicionamos o nome do professor no SELECT (p.nome as prof_responsavel) para o JavaScript usar no filtro
         cursor.execute("""
-            SELECT m.id, al.nome as aluno_nome, m.competencia, m.valor_devido, m.status, m.data_pagamento, d.nome as disciplina_nome, al.vencimento_mensalidade
+            SELECT m.id, al.nome as aluno_nome, m.competencia, m.valor_devido, m.status, m.data_pagamento, d.nome as disciplina_nome, al.vencimento_mensalidade, p.nome as prof_responsavel
             FROM mensalidades m 
             JOIN alunos al ON m.id_aluno = al.id 
             LEFT JOIN disciplinas d ON al.id_disciplina = d.id 
+            LEFT JOIN professores p ON al.id_professor = p.id
             WHERE m.competencia = %s;
         """, (competencia_atual,))
     else:
         cursor.execute("""
-            SELECT m.id, al.nome as aluno_nome, m.competencia, m.valor_devido, m.status, m.data_pagamento, d.nome as disciplina_nome, al.vencimento_mensalidade
+            SELECT m.id, al.nome as aluno_nome, m.competencia, m.valor_devido, m.status, m.data_pagamento, d.nome as disciplina_nome, al.vencimento_mensalidade, p.nome as prof_responsavel
             FROM mensalidades m 
             JOIN alunos al ON m.id_aluno = al.id 
             LEFT JOIN disciplinas d ON al.id_disciplina = d.id 
+            LEFT JOIN professores p ON al.id_professor = p.id
             WHERE m.competencia = %s AND al.id_professor = %s;
         """, (competencia_atual, session["professor_id"]))
 
     dia_hoje = datetime.now().day
 
-    # VARIÁVEIS DO RELATÓRIO FINANCEIRO
     total_recebido = 0.0
     total_no_prazo = 0.0
     total_atrasado = 0.0
@@ -736,14 +743,31 @@ def financeiro():
             v_devido = row.get("valor_devido") if row.get("valor_devido") is not None else 0.0
             status_banco = row.get("status")
             venc_dia = row.get("vencimento_mensalidade")
-            item = {"id": row.get("id"), "aluno_nome": row.get("aluno_nome"), "mes_competencia": row.get("competencia"), "valor": v_devido, "data_pagamento": row.get("data_pagamento"), "disciplina_nome": row.get("disciplina_nome"), "vencimento": venc_dia if venc_dia else "-"}
+            item = {
+                "id": row.get("id"), 
+                "aluno_nome": row.get("aluno_nome"), 
+                "mes_competencia": row.get("competencia"), 
+                "valor": v_devido, 
+                "data_pagamento": row.get("data_pagamento"), 
+                "disciplina_nome": row.get("disciplina_nome"), 
+                "vencimento": venc_dia if venc_dia else "-",
+                "professor_nome": row.get("prof_responsavel") if row.get("prof_responsavel") else "Não Atribuído"
+            }
         else:
             v_devido = row[3] if row[3] is not None else 0.0
             status_banco = row[4]
             venc_dia = row[7]
-            item = {"id": row[0], "aluno_nome": row[1], "mes_competencia": row[2], "valor": v_devido, "data_pagamento": row[5], "disciplina_nome": row[6], "vencimento": venc_dia if venc_dia else "-"}
+            item = {
+                "id": row[0], 
+                "aluno_nome": row[1], 
+                "mes_competencia": row[2], 
+                "valor": v_devido, 
+                "data_pagamento": row[5], 
+                "disciplina_nome": row[6], 
+                "vencimento": venc_dia if venc_dia else "-",
+                "professor_nome": row[8] if row[8] else "Não Atribuído"
+            }
 
-        # MOTOR DE STATUS E ACÚMULO DE ENTRADAS PARA O RELATÓRIO
         if status_banco == "Pago":
             item["status_visual"] = "Pago"
             total_recebido += float(v_devido)
@@ -767,7 +791,6 @@ def financeiro():
 
     cursor.close(); conn.close()
 
-    # O VALOR DESTA VARIÁVEL REUTILIZA A LISTA DE CIMA PARA EXIBIR OS CARDS NO HTML
     pode_ver_relatorio = nome_logado in gestores_escola
 
     return render_template(
@@ -778,8 +801,10 @@ def financeiro():
         total_recebido=total_recebido,
         total_no_prazo=total_no_prazo,
         total_atrasado=total_atrasado,
-        pode_ver_relatorio=pode_ver_relatorio
-    )    
+        pode_ver_relatorio=pode_ver_relatorio,
+        professores_lista=todos_professores,
+        usuario_logado=nome_logado
+    )
 
 if __name__ == "__main__":
     porta = int(os.environ.get("PORT", 5000))
