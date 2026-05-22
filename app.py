@@ -244,7 +244,10 @@ def dashboard():
     conn = obter_conexao()
     cursor = conn.cursor()
 
-    if nome_logado == "Bruno Moura":
+    # --- LISTA DE GESTORES QUE ENXERGAM OS DADOS GERAIS DA ESCOLA ---
+    gestores_escola = ["Bruno Moura", "Bruno Mota", "Raphael Russowsky"]
+
+    if nome_logado in gestores_escola:
         cursor.execute("SELECT COUNT(*) AS total FROM alunos;")
     else:
         cursor.execute(
@@ -269,7 +272,7 @@ def dashboard():
     }
     dia_atual_pt = dias_semana_pt[datetime.now().weekday()]
 
-    if nome_logado == "Bruno Moura":
+    if nome_logado in gestores_escola:
         cursor.execute(
             "SELECT COUNT(*) AS total FROM agenda WHERE dia_semana = %s;",
             (dia_atual_pt,),
@@ -288,25 +291,16 @@ def dashboard():
 
     cursor.close()
     conn.close()
+    
     meses_ano = [
-        "Janeiro",
-        "Fevereiro",
-        "Março",
-        "Abril",
-        "Maio",
-        "Junho",
-        "Julho",
-        "Agosto",
-        "Setembro",
-        "Outubro",
-        "Novembro",
-        "Dezembro",
+        "Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho",
+        "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"
     ]
     competencia_atual = f"{meses_ano[datetime.now().month - 1]}/{datetime.now().year}"
 
+    # REMOVIDO A DUPLICIDADE AQUI: Enviamos apenas o 'nome_professor' esperado pelo HTML
     return render_template(
         "dashboard.html",
-        nome_professor=nome_logado,
         total_alunos=total_alunos,
         aulas_hoje=aulas_hoje,
         nome_professor=nome_professor,
