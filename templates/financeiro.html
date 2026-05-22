@@ -28,9 +28,17 @@
         border-radius: 12px;
         padding: 25px;
       }
-      .table {
-        color: white;
-      }
+      /* --- ESTILIZAÇÃO DO FINANCEIRO PREMIUM --- */
+.table {
+    color: white; /* Garante que o texto base da tabela seja branco */
+}
+
+/* Clareia a coluna do professor (onde tem o bonequinho) */
+.table td span.text-muted.small {
+    color: rgba(255, 255, 255, 0.7) !important; /* Um branco 70% opaco para dar leitura perfeita */
+    font-weight: 500; /* Dá um leve peso na fonte pra ajudar */
+}
+      
       .card-faturamento {
         background-color: #222222;
         border: 1px solid #333333;
