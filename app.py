@@ -734,23 +734,60 @@ def financeiro():
     meses_disponiveis = [r["competencia"] if isinstance(r, dict) else r[0] for r in cursor.fetchall()]
     if datetime.now().strftime("%m/%Y") not in meses_disponiveis: meses_disponiveis.insert(0, datetime.now().strftime("%m/%Y"))
 
+    # INJETADO: al.vencimento_mensalidade na busca para sabermos o dia combinado
     if nome_logado == "Bruno Moura":
-        cursor.execute("SELECT m.id, al.nome as aluno_nome, m.competencia, m.valor_devido, m.status, m.data_pagamento, d.nome as disciplina_nome FROM mensalidades m JOIN alunos al ON m.id_aluno = al.id LEFT JOIN disciplinas d ON al.id_disciplina = d.id WHERE m.competencia = %s;", (competencia_atual,))
+        cursor.execute("""
+            SELECT m.id, al.nome as aluno_nome, m.competencia, m.valor_devido, m.status, m.data_pagamento, d.nome as disciplina_nome, al.vencimento_mensalidade
+            FROM mensalidades m 
+            JOIN alunos al ON m.id_aluno = al.id 
+            LEFT JOIN disciplinas d ON al.id_disciplina = d.id 
+            WHERE m.competencia = %s;
+        """, (competencia_atual,))
     else:
-        cursor.execute("SELECT m.id, al.nome as aluno_nome, m.competencia, m.valor_devido, m.status, m.data_pagamento, d.nome as disciplina_nome FROM mensalidades m JOIN alunos al ON m.id_aluno = al.id LEFT JOIN disciplinas d ON al.id_disciplina = d.id WHERE m.competencia = %s AND al.id_professor = %s;", (competencia_atual, session["professor_id"]))
+        cursor.execute("""
+            SELECT m.id, al.nome as aluno_nome, m.competencia, m.valor_devido, m.status, m.data_pagamento, d.nome as disciplina_nome, al.vencimento_mensalidade
+            FROM mensalidades m 
+            JOIN alunos al ON m.id_aluno = al.id 
+            LEFT JOIN disciplinas d ON al.id_disciplina = d.id 
+            WHERE m.competencia = %s AND al.id_professor = %s;
+        """, (competencia_atual, session["professor_id"]))
+
+    dia_hoje = datetime.now().day
 
     lista_mensalidades = []
     for row in cursor.fetchall():
         if isinstance(row, dict):
             v_devido = row.get("valor_devido") if row.get("valor_devido") is not None else 0.0
-            lista_mensalidades.append({"id": row.get("id"), "aluno_nome": row.get("aluno_nome"), "mes_competencia": row.get("competencia"), "valor": v_devido, "status": row.get("status"), "data_pagamento": row.get("data_pagamento"), "disciplina_nome": row.get("disciplina_nome")})
+            status_banco = row.get("status")
+            venc_dia = row.get("vencimento_mensalidade")
+            
+            item = {"id": row.get("id"), "aluno_nome": row.get("aluno_nome"), "mes_competencia": row.get("competencia"), "valor": v_devido, "data_pagamento": row.get("data_pagamento"), "disciplina_nome": row.get("disciplina_nome"), "vencimento": venc_dia if venc_dia else "-"}
         else:
             v_devido = row[3] if row[3] is not None else 0.0
-            lista_mensalidades.append({"id": row[0], "aluno_nome": row[1], "mes_competencia": row[2], "valor": v_devido, "status": row[4], "data_pagamento": row[5], "disciplina_nome": row[6]})
+            status_banco = row[4]
+            venc_dia = row[7]
+            
+            item = {"id": row[0], "aluno_nome": row[1], "mes_competencia": row[2], "valor": v_devido, "data_pagamento": row[5], "disciplina_nome": row[6], "vencimento": venc_dia if venc_dia else "-"}
+
+        # --- MOTOR DE STATUS INTELIGENTE ---
+        if status_banco == "Pago":
+            item["status_visual"] = "Pago"
+        else:
+            try:
+                dia_venc_int = int(str(venc_dia).strip())
+                if dia_hoje < dia_venc_int:
+                    item["status_visual"] = "No Prazo"
+                elif dia_hoje == dia_venc_int:
+                    item["status_visual"] = "Vence Hoje"
+                else:
+                    item["status_visual"] = "Atrasado"
+            except Exception:
+                item["status_visual"] = "Pendente" # Fallback caso não tenha número válido
+
+        lista_mensalidades.append(item)
 
     cursor.close(); conn.close()
     return render_template("financeiro.html", mensalidades=lista_mensalidades, competencia=competencia_atual, meses_opcoes=meses_disponiveis)
-
 
 if __name__ == "__main__":
     porta = int(os.environ.get("PORT", 5000))
