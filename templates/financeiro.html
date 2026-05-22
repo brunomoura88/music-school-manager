@@ -31,7 +31,6 @@
       .table {
         color: white;
       }
-      /* CARDS DE RELATÓRIO */
       .card-faturamento {
         background-color: #222222;
         border: 1px solid #333333;
@@ -76,14 +75,27 @@
           <h2>Controle de Mensalidades</h2>
 
           <div class="d-flex align-items-center gap-2 flex-wrap">
-            <div class="input-group input-group-sm" style="width: 260px;">
+            
+            {% if pode_ver_relatorio %}
+            <div class="d-flex align-items-center bg-dark p-1 px-2 rounded border border-secondary">
+              <label class="me-2 text-muted fw-bold text-uppercase small m-0" style="font-size: 11px;">Prof:</label>
+              <select id="filtroProfessor" class="form-select form-select-sm bg-secondary text-white border-0 fw-bold" onchange="filtrarTabela()" style="width: 150px; cursor: pointer">
+                <option value="TODOS">-- Todos --</option>
+                {% for prof in professores_lista %}
+                <option value="{{ prof }}">{{ prof }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            {% endif %}
+
+            <div class="input-group input-group-sm" style="width: 220px;">
               <span class="input-group-text bg-dark border-secondary text-muted"><i class="bi bi-search"></i></span>
-              <input type="text" id="campoPesquisa" class="form-control bg-dark text-white border-secondary" placeholder="Buscar aluno por nome..." onkeyup="filtrarAlunos()">
+              <input type="text" id="campoPesquisa" class="form-control bg-dark text-white border-secondary" placeholder="Buscar aluno..." onkeyup="filtrarTabela()">
             </div>
 
             <form action="/financeiro" method="POST" class="d-flex align-items-center bg-dark p-1 px-2 rounded border border-secondary">
               <label class="me-2 text-muted fw-bold text-uppercase small m-0" style="font-size: 11px;">Mês:</label>
-              <select name="competencia_filtro" class="form-select form-select-sm bg-secondary text-white border-0 fw-bold" onchange="this.form.submit()" style="width: 120px; cursor: pointer">
+              <select name="competencia_filtro" class="form-select form-select-sm bg-secondary text-white border-0 fw-bold" onchange="this.form.submit()" style="width: 100px; cursor: pointer">
                 {% for mes in meses_opcoes %}
                 <option value="{{ mes }}" {% if mes == competencia %} selected {% endif %}>{{ mes }}</option>
                 {% endfor %}
@@ -98,6 +110,7 @@
               <tr class="table-active">
                 <th>Aluno</th>
                 <th>Curso</th>
+                <th>Professor</th>
                 <th>Mês</th>
                 <th>Valor Devido</th>
                 <th>Vencimento</th>
@@ -109,13 +122,14 @@
             <tbody>
               {% if not mensalidades %}
               <tr id="linhaVazia">
-                <td colspan="8" class="text-center text-muted py-4">Nenhuma movimentação para este mês ainda.</td>
+                <td colspan="9" class="text-center text-muted py-4">Nenhuma movimentação para este mês ainda.</td>
               </tr>
               {% endif %} 
               {% for m in mensalidades %}
-              <tr>
+              <tr data-professor="{{ m.professor_name }}">
                 <td class="fw-bold nome-aluno-col">{{ m.aluno_nome }}</td>
                 <td><span class="badge bg-secondary">{{ m.disciplina_nome if m.disciplina_nome else 'Geral' }}</span></td>
+                <td><span class="text-muted small">👨‍🏫 {{ m.professor_name }}</span></td>
                 <td>{{ m.mes_competencia }}</td>
                 <td class="text-success fw-bold">R$ {{ "%.2f"|format(m.valor|float) }}</td>
                 <td class="fw-bold text-light-50">Dia {{ m.vencimento }}</td>
@@ -147,20 +161,33 @@
     </div>
 
     <script>
-      function filtrarAlunos() {
-        var input = document.getElementById("campoPesquisa");
-        var filtro = input.value.toUpperCase();
+      function filtrarTabela() {
+        var inputNome = document.getElementById("campoPesquisa");
+        var filtroNome = inputNome.value.toUpperCase();
+        
+        var seletorProf = document.getElementById("filtroProfessor");
+        // Se o elemento não existir (para profs normais), o padrão é buscar 'TODOS'
+        var filtroProf = seletorProf ? seletorProf.value : "TODOS";
+
         var tabela = document.getElementById("tabelaFinanceiro");
         var linhas = tabela.getElementsByTagName("tbody")[0].getElementsByTagName("tr");
 
         for (var i = 0; i < linhas.length; i++) {
-          // Ignora a linha de aviso caso a tabela esteja vazia
           if (linhas[i].id === "linhaVazia") continue;
 
+          // Pega o nome do professor guardado na tag da linha
+          var profDaLinha = linhas[i].getAttribute("data-professor");
           var colunaNome = linhas[i].getElementsByClassName("nome-aluno-col")[0];
+          
           if (colunaNome) {
             var textoNome = colunaNome.textContent || colunaNome.innerText;
-            if (textoNome.toUpperCase().indexOf(filtro) > -1) {
+            
+            // Valida as duas condições matemáticas simultaneamente
+            var bateuNome = textoNome.toUpperCase().indexOf(filtroNome) > -1;
+            var bateuProfessor = (filtroProf === "TODOS" || profDaLinha === filtroProf);
+
+            // Exibe a linha apenas se passar em ambos os filtros ao mesmo tempo
+            if (bateuNome && bateuProfessor) {
               linhas[i].style.display = "";
             } else {
               linhas[i].style.display = "none";
