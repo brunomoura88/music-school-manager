@@ -672,7 +672,7 @@ def pagar_mensalidade(id_mensalidade):
     conn.commit()
     conn.close()
     return redirect("/financeiro")
-
+    
 @app.route("/financeiro", methods=["GET", "POST"])
 def financeiro():
     if "professor_id" not in session: return redirect("/")
@@ -704,7 +704,6 @@ def financeiro():
     meses_disponiveis = [r["competencia"] if isinstance(r, dict) else r[0] for r in cursor.fetchall()]
     if datetime.now().strftime("%m/%Y") not in meses_disponiveis: meses_disponiveis.insert(0, datetime.now().strftime("%m/%Y"))
 
-    # INJETADO: al.vencimento_mensalidade na busca para sabermos o dia combinado
     if nome_logado == "Bruno Moura":
         cursor.execute("""
             SELECT m.id, al.nome as aluno_nome, m.competencia, m.valor_devido, m.status, m.data_pagamento, d.nome as disciplina_nome, al.vencimento_mensalidade
@@ -724,40 +723,63 @@ def financeiro():
 
     dia_hoje = datetime.now().day
 
+    # VARIÁVEIS DO RELATÓRIO FINANCEIRO
+    total_recebido = 0.0
+    total_no_prazo = 0.0
+    total_atrasado = 0.0
+
     lista_mensalidades = []
     for row in cursor.fetchall():
         if isinstance(row, dict):
             v_devido = row.get("valor_devido") if row.get("valor_devido") is not None else 0.0
             status_banco = row.get("status")
             venc_dia = row.get("vencimento_mensalidade")
-            
             item = {"id": row.get("id"), "aluno_nome": row.get("aluno_nome"), "mes_competencia": row.get("competencia"), "valor": v_devido, "data_pagamento": row.get("data_pagamento"), "disciplina_nome": row.get("disciplina_nome"), "vencimento": venc_dia if venc_dia else "-"}
         else:
             v_devido = row[3] if row[3] is not None else 0.0
             status_banco = row[4]
             venc_dia = row[7]
-            
             item = {"id": row[0], "aluno_nome": row[1], "mes_competencia": row[2], "valor": v_devido, "data_pagamento": row[5], "disciplina_nome": row[6], "vencimento": venc_dia if venc_dia else "-"}
 
-        # --- MOTOR DE STATUS INTELIGENTE ---
+        # MOTOR DE STATUS E ACÚMULO DE ENTRADAS PARA O RELATÓRIO
         if status_banco == "Pago":
             item["status_visual"] = "Pago"
+            total_recebido += float(v_devido)
         else:
             try:
                 dia_venc_int = int(str(venc_dia).strip())
                 if dia_hoje < dia_venc_int:
                     item["status_visual"] = "No Prazo"
+                    total_no_prazo += float(v_devido)
                 elif dia_hoje == dia_venc_int:
                     item["status_visual"] = "Vence Hoje"
+                    total_no_prazo += float(v_devido)
                 else:
                     item["status_visual"] = "Atrasado"
+                    total_atrasado += float(v_devido)
             except Exception:
-                item["status_visual"] = "Pendente" # Fallback caso não tenha número válido
+                item["status_visual"] = "Pendente"
+                total_atrasado += float(v_devido)
 
         lista_mensalidades.append(item)
 
     cursor.close(); conn.close()
-    return render_template("financeiro.html", mensalidades=lista_mensalidades, competencia=competencia_atual, meses_opcoes=meses_disponiveis)
+
+    # CONTROLE DE ACESSO EXCLUSIVO AOS RELATÓRIOS
+    # Normalizamos removendo espaços extras para evitar erros de digitação
+    professores_autorizados = ["Bruno Moura", "Bruno Mota", "Raphael Russowsky"]
+    pode_ver_relatorio = nome_logado in professores_autorizados
+
+    return render_template(
+        "financeiro.html", 
+        mensalidades=lista_mensalidades, 
+        competencia=competencia_atual, 
+        meses_opcoes=meses_disponiveis,
+        total_recebido=total_recebido,
+        total_no_prazo=total_no_prazo,
+        total_atrasado=total_atrasado,
+        pode_ver_relatorio=pode_ver_relatorio
+    )
 
 if __name__ == "__main__":
     porta = int(os.environ.get("PORT", 5000))
