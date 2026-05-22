@@ -14,131 +14,78 @@
       href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css"
     />
     <style>
-      body {
-        background-color: #1a1a1a;
-        color: white;
-      }
-      .navbar-estudio {
-        background-color: #000000;
-        border-bottom: 3px solid #800000;
-      }
-      .card-cadastro {
-        background-color: #262626;
-        border: none;
-        border-radius: 8px;
-      }
-      .btn-estudio {
-        background-color: #800000;
-        color: white;
-        border: none;
-      }
-      .btn-estudio:hover {
-        background-color: #a00000;
-        color: white;
-      }
-      .grade-tabela th {
-        background-color: #000000 !important;
-        color: #ffc107 !important;
-        text-align: center;
-      }
-      .grade-tabela td {
-        text-align: center;
-        vertical-align: middle;
-        min-width: 120px;
-        font-size: 12px;
-      }
-      .celula-ocupada {
-        background-color: #800000 !important;
-        color: white !important;
-        font-weight: bold;
-        border-radius: 4px;
-        padding: 6px;
-      }
-      .celula-livre {
-        color: #555;
-        font-style: italic;
-      }
-      /* --- CARDS DA AGENDA MODERNIZADOS (ESTÚDIO A) --- */
-      .celula-ocupada {
-        display: flex;
-        flex-direction: column;
-        justify-content: center;
-        align-items: center;
-        padding: 6px;
-        width: 100%;
-      }
+    /* ... (Mantenha o estilo do corpo e da tabela normal) ... */
+    
+    /* RESET DA TD PARA PREENCHIMENTO TOTAL */
+    .table-agenda td {
+        padding: 0 !important; /* Removemos o padding para a div preencher 100% */
+        height: 80px; /* Altura fixa para alinhar os blocos */
+        vertical-align: top;
+        position: relative;
+    }
 
-      .aula-minha-card,
-      .aula-outra-card {
+    /* O CONTAINER QUE PREENCHE A CÉLULA INTEIRA */
+    .aula-block {
+        width: 100%;
+        height: 100%;
+        padding: 10px; /* Padding interno do card */
         display: flex;
         flex-direction: column;
-        align-items: center;
-        justify-content: center;
-        width: 100%;
-        max-width: 95%;
-        padding: 10px 12px;
-        border-radius: 8px;
-        font-size: 0.85rem;
+        justify-content: flex-start;
+        align-items: flex-start; /* Alinhamento à esquerda, igual ao seu exemplo */
+        position: relative;
+        color: white; /* Texto sempre branco sobre cores vibrantes */
+        font-family: sans-serif;
+    }
+
+    /* ESTILIZAÇÃO DOS TEXTOS (CHAPADOS E BOLD) */
+    .aula-block .aluno {
+        font-size: 13px;
+        font-weight: bold;
+        line-height: 1.2;
+        margin-bottom: 2px;
+        text-shadow: 0 1px 2px rgba(0,0,0,0.4); /* Sombra leve para garantir legibilidade */
+    }
+
+    .aula-block .professor-nome {
+        font-size: 11px;
+        color: rgba(255, 255, 255, 0.8);
+        text-transform: uppercase;
         font-weight: 600;
-        text-align: center;
-        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
-        transition: transform 0.2s ease, box-shadow 0.2s ease;
-        border: 1px solid transparent;
-      }
+        letter-spacing: 0.5px;
+    }
 
-      .aula-minha-card:hover,
-      .aula-outra-card:hover {
-        transform: translateY(-1px);
-        box-shadow: 0 6px 10px rgba(0, 0, 0, 0.4);
-      }
-
-      /* Suas Aulas: Vinho elegante com fundo semi-transparente e borda acesa */
-      .aula-minha-card {
-        background: linear-gradient(145, rgba(128, 0, 32, 0.4), rgba(74, 18, 26, 0.5)) !important;
-        color: #ffffff !important;
-        border: 1px solid #800020 !important;
-        border-left: 5px solid #ff4d6d !important;
-      }
-
-      /* Aulas de Outros Professores: Cinza escuro discreto para não poluir sua visão */
-      .aula-outra-card {
-        background: linear-gradient(145, rgba(255, 255, 255, 0.03), rgba(255, 255, 255, 0.01)) !important;
-        color: #aaaaaa !important;
-        border: 1px solid #333333 !important;
-        border-left: 5px solid #555555 !important;
-      }
-
-      /* Texto do professor auxiliar */
-      .aula-outra-card small {
-        font-size: 11px;
-        color: #777777;
-        margin-top: 2px;
-      }
-
-      /* --- MINI-BOTÃO PREMIUM DE LIMPAR HORÁRIO --- */
-      .btn-limpar-agenda {
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        background-color: rgba(255, 255, 255, 0.07);
-        color: #ff6b6b !important;
-        border: 1px solid rgba(255, 107, 107, 0.15);
-        padding: 3px 8px;
-        border-radius: 5px;
-        font-size: 11px;
+    /* BADGE DE RECUPERAÇÃO E BOTÃO DE LIMPAR ESCONDIDOS NO CANTO */
+    .rec-badge {
+        position: absolute;
+        top: 5px;
+        right: 5px;
+        background-color: #ffc107;
+        color: #212529;
+        font-size: 9px;
         font-weight: bold;
-        text-decoration: none;
-        margin-top: 6px;
-        transition: all 0.2s ease;
-        cursor: pointer;
-      }
+        padding: 2px 5px;
+        border-radius: 4px;
+        text-transform: uppercase;
+    }
 
-      .btn-limpar-agenda:hover {
-        background-color: #ff6b6b;
+    .btn-limpar-premium {
+        position: absolute;
+        bottom: 5px;
+        right: 5px;
+        color: rgba(255, 255, 255, 0.4) !important;
+        background: none;
+        border: none;
+        padding: 2px;
+        font-size: 12px;
+        transition: color 0.2s ease, transform 0.1s ease;
+    }
+
+    .btn-limpar-premium:hover {
         color: white !important;
-        border-color: #ff6b6b;
-      }
-          </style>
+        transform: scale(1.1);
+    }
+</style>
   </head>
   <body>
     <nav class="navbar navbar-expand-lg navbar-dark navbar-estudio py-1 px-3">
@@ -253,22 +200,25 @@
                   </tr>
                 </thead>
                 <tbody>
-                  {% for hora in horarios %}
-                  <tr>
-                    <td class="fw-bold bg-black text-warning text-center">{{ hora }}</td>
-                    {% for dia in dias_semana %}
-                    <td>
-                      {% set chave = (dia, hora) %} 
-                      {% if chave in mapa_agenda %}
-                      <div class="celula-ocupada">
-                        {{ mapa_agenda[chave]|safe }}
-                      </div>
-                      {% endif %}
+    {% for hora in horarios %}
+    <tr>
+        <th class="hora-col">{{ hora }}</th>
+        {% for dia in dias_semana %}
+            {% set slot = (dia, hora) %}
+            
+            {% if slot in mapa_agenda %}
+                {% set dados_aula = mapa_agenda[slot] %}
+                <td class="celula-ocupada" style="background-color: {{ dados_aula.cor }};">
+                    {{ dados_aula.html | safe }}
+                </td>
+            {% else %}
+                <td class="celula-vazia text-center" onclick="abrirModal('{{ dia }}', '{{ hora }}')">
                     </td>
-                    {% endfor %}
-                  </tr>
-                  {% endfor %}
-                </tbody>
+            {% endif %}
+        {% endfor %}
+    </tr>
+    {% endfor %}
+</tbody>
               </table>
             </div>
           </div>
