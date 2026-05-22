@@ -13,79 +13,127 @@
       rel="stylesheet"
       href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css"
     />
+    <link
+      rel="stylesheet"
+      href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css"
+    />
     <style>
-    /* ... (Mantenha o estilo do corpo e da tabela normal) ... */
-    
-    /* RESET DA TD PARA PREENCHIMENTO TOTAL */
-    .table-agenda td {
-        padding: 0 !important; /* Removemos o padding para a div preencher 100% */
-        height: 80px; /* Altura fixa para alinhar os blocos */
+      body {
+        background-color: #121212;
+        color: white;
+        font-family: sans-serif;
+      }
+      .navbar-estudio {
+        background-color: #1a1a1a;
+        border-bottom: 1px solid #2a2a2a;
+      }
+      .card-cadastro {
+        background-color: #1a1a1a;
+        border: 1px solid #2a2a2a;
+        border-radius: 10px;
+      }
+      .btn-estudio {
+        background-color: #800020;
+        color: white;
+      }
+      .btn-estudio:hover {
+        background-color: #a0002c;
+        color: white;
+      }
+      
+      /* --- REGRA PREMIUM DE PREENCHIMENTO TOTAL (ESTILO REFERÊNCIA) --- */
+      .grade-tabela th {
+        background-color: #1a1a1a !important;
+        color: #888 !important;
+        font-size: 12px;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        text-align: center;
+        padding: 10px;
+        border: 1px solid #2a2a2a !important;
+      }
+      .grade-tabela td {
+        padding: 0 !important;
+        height: 85px;
+        width: 14%;
         vertical-align: top;
         position: relative;
-    }
-
-    /* O CONTAINER QUE PREENCHE A CÉLULA INTEIRA */
-    .aula-block {
+        background-color: #1e1e1e;
+        border: 1px solid #2a2a2a !important;
+      }
+      .celula-vazia {
+        cursor: pointer;
+        transition: background-color 0.2s ease;
+        height: 100%;
+      }
+      .celula-vazia:hover {
+        background-color: #252525;
+      }
+      
+      /* CONTAINER DOS CARDS INTEGRAIS */
+      .aula-block {
         width: 100%;
         height: 100%;
-        padding: 10px; /* Padding interno do card */
+        padding: 10px;
         display: flex;
         flex-direction: column;
-        justify-content: flex-start;
-        align-items: flex-start; /* Alinhamento à esquerda, igual ao seu exemplo */
+        justify-content: space-between;
+        align-items: flex-start;
         position: relative;
-        color: white; /* Texto sempre branco sobre cores vibrantes */
-        font-family: sans-serif;
-    }
-
-    /* ESTILIZAÇÃO DOS TEXTOS (CHAPADOS E BOLD) */
-    .aula-block .aluno {
+        box-sizing: border-box;
+      }
+      .aula-block .aluno {
         font-size: 13px;
         font-weight: bold;
+        color: #ffffff;
         line-height: 1.2;
-        margin-bottom: 2px;
-        text-shadow: 0 1px 2px rgba(0,0,0,0.4); /* Sombra leve para garantir legibilidade */
-    }
-
-    .aula-block .professor-nome {
-        font-size: 11px;
-        color: rgba(255, 255, 255, 0.8);
+        text-align: left;
+        margin-right: 20px;
+        text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+      }
+      .aula-block .professor-nome {
+        font-size: 10px;
+        color: rgba(255, 255, 255, 0.85);
         text-transform: uppercase;
-        font-weight: 600;
+        font-weight: 700;
         letter-spacing: 0.5px;
-    }
-
-    /* BADGE DE RECUPERAÇÃO E BOTÃO DE LIMPAR ESCONDIDOS NO CANTO */
-    .rec-badge {
+        margin-top: auto;
+        text-shadow: 0 1px 1px rgba(0, 0, 0, 0.3);
+      }
+      
+      /* BADGE DA RECUPERAÇÃO NO CANTO */
+      .rec-badge {
         position: absolute;
-        top: 5px;
-        right: 5px;
+        top: 6px;
+        right: 6px;
         background-color: #ffc107;
         color: #212529;
         font-size: 9px;
         font-weight: bold;
-        padding: 2px 5px;
-        border-radius: 4px;
+        padding: 1px 4px;
+        border-radius: 3px;
         text-transform: uppercase;
-    }
-
-    .btn-limpar-premium {
+      }
+      
+      /* BOTÃO DE LIXEIRA PREMIUM NO CANTO INFERIOR */
+      .btn-limpar-premium {
         position: absolute;
-        bottom: 5px;
-        right: 5px;
-        color: rgba(255, 255, 255, 0.4) !important;
-        background: none;
+        bottom: 6px;
+        right: 6px;
+        color: rgba(255, 255, 255, 0.6) !important;
+        background: rgba(0, 0, 0, 0.2);
         border: none;
-        padding: 2px;
-        font-size: 12px;
-        transition: color 0.2s ease, transform 0.1s ease;
-    }
-
-    .btn-limpar-premium:hover {
-        color: white !important;
+        padding: 3px 6px;
+        border-radius: 4px;
+        font-size: 11px;
+        transition: all 0.2s ease;
+      }
+      .btn-limpar-premium:hover {
+        color: #ff4d4d !important;
+        background: rgba(0, 0, 0, 0.4);
         transform: scale(1.1);
-    }
-</style>
+      }
+    </style>
   </head>
   <body>
     <nav class="navbar navbar-expand-lg navbar-dark navbar-estudio py-1 px-3">
@@ -112,7 +160,7 @@
 
       <div class="row">
         <div class="col-12 col-xl-3 mb-4">
-          <div class="card card-cadastro p-4">
+          <div class="card card-cadastro p-4 shadow-lg">
             <h4 class="fw-bold mb-3 text-uppercase" style="color: #ffc107">Agendar Aula</h4>
             <form action="/agenda" method="POST">
               <div class="mb-2">
@@ -126,17 +174,17 @@
               </div>
 
               <div class="mb-3">
-                <label class="form-label fw-bold">Tipo de Agendamento</label>
-                <select name="tipo_aula" id="tipo_aula" class="form-select" onchange="toggleDataCampo()">
+                <label class="form-label text-light small">Tipo de Agendamento</label>
+                <select name="tipo_aula" id="tipo_aula" class="form-select form-select-sm" onchange="toggleDataCampo()">
                   <option value="Fixa">Aula Fixa (Mensal)</option>
                   <option value="Recuperacao">Aula de Recuperação (Individual)</option>
                 </select>
               </div>
 
               <div class="mb-3 d-none" id="container_data_aula">
-                <label class="form-label fw-bold text-danger">Data da Recuperação</label>
-                <input type="date" name="data_aula" class="form-control" />
-                <small class="text-muted">Esta aula sairá da grade automaticamente após esta data.</small>
+                <label class="form-label fw-bold text-danger small">Data da Recuperação</label>
+                <input type="date" name="data_aula" class="form-control form-control-sm" />
+                <small class="text-muted d-block mt-1" style="font-size: 11px;">Esta aula sairá da grade automaticamente após esta data.</small>
               </div>
 
               <div class="mb-2">
@@ -166,7 +214,7 @@
                 </div>
               </div>
 
-              <button type="submit" class="btn btn-estudio w-100 fw-bold btn-sm">
+              <button type="submit" class="btn btn-estudio w-100 fw-bold btn-sm py-2">
                 CONFIRMAR HORÁRIO
               </button>
             </form>
@@ -174,12 +222,12 @@
         </div>
 
         <div class="col-12 col-xl-9">
-          <div class="p-3" style="background-color: #262626; border-radius: 8px">
+          <div class="p-3 shadow-lg" style="background-color: #1a1a1a; border: 1px solid #2a2a2a; border-radius: 8px">
             <div class="d-flex align-items-center justify-content-between mb-3 flex-wrap gap-2">
-              <h4 class="fw-bold text-uppercase m-0">Grade Semanal de Ocupação</h4>
+              <h4 class="fw-bold text-uppercase m-0" style="font-size: 18px; letter-spacing: 0.5px;">Grade Semanal de Ocupação</h4>
               <div class="d-flex align-items-center gap-2">
-                <label class="small text-muted text-nowrap">Visualizar Sala:</label>
-                <select class="form-select form-select-sm bg-dark text-white border-secondary" id="seletorSala" onchange="mudarSala()">
+                <label class="small text-muted text-nowrap m-0">Visualizar Sala:</label>
+                <select class="form-select form-select-sm bg-dark text-white border-secondary" id="seletorSala" onchange="mudarSala()" style="width: 120px;">
                   {% for s in salas %}
                   <option value="{{ s.id }}" {% if s.id == sala_selecionada %}selected{% endif %}>
                     {{ s.nome }}
@@ -190,35 +238,33 @@
             </div>
 
             <div class="table-responsive">
-              <table class="table table-dark table-bordered grade-tabela align-middle mb-0">
+              <table class="table grade-tabela align-middle mb-0">
                 <thead>
                   <tr>
-                    <th style="width: 100px">Horário</th>
+                    <th style="width: 90px;">Horário</th>
                     {% for dia in dias_semana %}
                     <th>{{ dia }}</th>
                     {% endfor %}
                   </tr>
                 </thead>
                 <tbody>
-    {% for hora in horarios %}
-    <tr>
-        <th class="hora-col">{{ hora }}</th>
-        {% for dia in dias_semana %}
-            {% set slot = (dia, hora) %}
-            
-            {% if slot in mapa_agenda %}
-                {% set dados_aula = mapa_agenda[slot] %}
-                <td class="celula-ocupada" style="background-color: {{ dados_aula.cor }};">
-                    {{ dados_aula.html | safe }}
-                </td>
-            {% else %}
-                <td class="celula-vazia text-center" onclick="abrirModal('{{ dia }}', '{{ hora }}')">
-                    </td>
-            {% endif %}
-        {% endfor %}
-    </tr>
-    {% endfor %}
-</tbody>
+                  {% for hora in horarios %}
+                  <tr>
+                    <th style="background-color: #1a1a1a; color: #aaa; font-size: 13px; text-align: center; border: 1px solid #2a2a2a;">{{ hora }}</th>
+                    {% for dia in dias_semana %}
+                      {% set slot = (dia, hora) %}
+                      {% if slot in mapa_agenda %}
+                        {% set dados_aula = mapa_agenda[slot] %}
+                        <td style="background-color: {{ dados_aula.cor }} !important;">
+                          {{ dados_aula.html | safe }}
+                        </td>
+                      {% else %}
+                        <td class="celula-vazia"></td>
+                      {% endif %}
+                    {% endfor %}
+                  </tr>
+                  {% endfor %}
+                </tbody>
               </table>
             </div>
           </div>
