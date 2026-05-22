@@ -78,6 +78,14 @@
             <div class="col-12 col-lg-8">
                 <div class="p-3" style="background-color: #262626; border-radius: 8px;">
                     <h4 class="fw-bold mb-3 text-uppercase">Alunos Cadastrados</h4>
+                    <div class="mb-3 d-flex justify-content-end">
+    <div class="input-group" style="max-width: 300px;">
+        <span class="input-group-text bg-dark border-secondary text-muted">
+            <i class="bi bi-search"></i>
+        </span>
+        <input type="text" id="buscaAluno" class="form-control bg-dark text-white border-secondary" placeholder="Buscar aluno por nome..." onkeyup="filtrarAlunosCadastrados()">
+    </div>
+</div>
                     <div class="table-responsive">
                         <table class="table table-dark table-striped align-middle mb-0" style="font-size: 14px;">
                             <thead>
@@ -100,7 +108,7 @@
                                 {% for a in alunos %}
                                     <tr>
                                         <td>{{ a.id }}</td>
-                                        <td class="fw-bold">{{ a.nome }}</td>
+                                        <td class="fw-bold nome-aluno-cadastro">{{ aluno.nome }}</td>
                                         <td><span class="badge bg-secondary">{{ a.disciplina_nome if a.disciplina_nome else 'Geral' }}</span></td>
                                         <td>{{ a.professor_nome if a.professor_nome else 'Não vinculado' }}</td>
                                         <td>Dia {{ a.vencimento_mensalidade }}</td>
@@ -126,6 +134,26 @@
             </div>
         </div>
     </div>
+<script>
+function filtrarAlunosCadastrados() {
+    var input = document.getElementById("buscaAluno");
+    var filtro = input.value.toUpperCase();
+    // Certifique-se de que sua tabela tem uma classe ou ID de fácil acesso, ou use o seletor genérico:
+    var tabela = document.querySelector("table");
+    var linhas = tabela.getElementsByTagName("tbody")[0].getElementsByTagName("tr");
 
+    for (var i = 0; i < linhas.length; i++) {
+        var colunaNome = linhas[i].getElementsByClassName("nome-aluno-cadastro")[0];
+        if (colunaNome) {
+            var textoNome = colunaNome.textContent || colunaNome.innerText;
+            if (textoNome.toUpperCase().indexOf(filtro) > -1) {
+                linhas[i].style.display = "";
+            } else {
+                linhas[i].style.display = "none";
+            }
+        }
+    }
+}
+</script>
 </body>
 </html>
