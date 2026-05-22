@@ -541,100 +541,102 @@ def editar_aluno(id):
         professores=professores_lista,
     )
 
-<style>
-    /* ... (Mantenha o estilo do corpo e da tabela normal) ... */
-    
-    /* RESET DA TD PARA PREENCHIMENTO TOTAL */
-    .table-agenda td {
-        padding: 0 !important; /* Removemos o padding para a div preencher 100% */
-        height: 80px; /* Altura fixa para alinhar os blocos */
-        vertical-align: top;
-        position: relative;
-    }
+@app.route("/agenda", methods=["GET", "POST"])
+def agenda():
+    if "professor_id" not in session: return redirect("/")
+    conn = obter_conexao(); cursor = conn.cursor()
+    try:
+        cursor.execute("ALTER TABLE agenda ADD COLUMN IF NOT EXISTS id_sala INTEGER DEFAULT 1;")
+        conn.commit()
+    except Exception: pass
 
-    /* O CONTAINER QUE PREENCHE A CÉLULA INTEIRA */
-    .aula-block {
-        width: 100%;
-        height: 100%;
-        padding: 10px; /* Padding interno do card */
-        display: flex;
-        flex-direction: column;
-        justify-content: flex-start;
-        align-items: flex-start; /* Alinhamento à esquerda, igual ao seu exemplo */
-        position: relative;
-        color: white; /* Texto sempre branco sobre cores vibrantes */
-        font-family: sans-serif;
-    }
+    if request.method == "POST":
+        id_sala = request.form.get("id_sala", 1)
+        id_professor = session["professor_id"]
+        id_aluno = request.form.get("id_aluno")
+        dia_semana = request.form.get("dia_semana")
+        horario = request.form.get("horario")
+        type_aula_val = request.form.get("tipo_aula", "Fixa")
+        data_aula = None if type_aula_val == "Fixa" else request.form.get("data_aula")
 
-    /* ESTILIZAÇÃO DOS TEXTOS (CHAPADOS E BOLD) */
-    .aula-block .aluno {
-        font-size: 13px;
-        font-weight: bold;
-        line-height: 1.2;
-        margin-bottom: 2px;
-        text-shadow: 0 1px 2px rgba(0,0,0,0.4); /* Sombra leve para garantir legibilidade */
-    }
+        try:
+            cursor.execute("INSERT INTO agenda (id_sala, id_professor, id_aluno, dia_semana, horario, tipo_aula, data_aula) VALUES (%s, %s, %s, %s, %s, %s, %s);",
+                           (id_sala, id_professor, id_aluno, dia_semana, horario, type_aula_val, data_aula))
+            conn.commit()
+            cursor.close(); conn.close()
+            return redirect(f"/agenda?sala_id={id_sala}")
+        except Exception: erro = "Conflito!"
 
-    .aula-block .professor-nome {
-        font-size: 11px;
-        color: rgba(255, 255, 255, 0.8);
-        text-transform: uppercase;
-        font-weight: 600;
-        letter-spacing: 0.5px;
-    }
+    sala_selecionada = request.args.get("sala_id", 1, type=int)
+    cursor.execute("SELECT id, nome FROM salas ORDER BY nome;"); all_salas = cursor.fetchall()
+    cursor.execute("SELECT id, nome FROM professores ORDER BY nome;"); all_professores = cursor.fetchall()
+    cursor.execute("SELECT id, nome FROM alunos ORDER BY nome;"); all_alunos = cursor.fetchall()
 
-    /* BADGE DE RECUPERAÇÃO E BOTÃO DE LIMPAR ESCONDIDOS NO CANTO */
-    .rec-badge {
-        position: absolute;
-        top: 5px;
-        right: 5px;
-        background-color: #ffc107;
-        color: #212529;
-        font-size: 9px;
-        font-weight: bold;
-        padding: 2px 5px;
-        border-radius: 4px;
-        text-transform: uppercase;
-    }
+    cursor.execute("""
+        SELECT age.id, age.dia_semana, age.horario, al.nome as al_nome, p.nome as pf_nome, d.nome as dp_nome, age.tipo_aula, age.id_professor
+        FROM agenda age 
+        LEFT JOIN alunos al ON age.id_aluno = al.id 
+        LEFT JOIN professores p ON age.id_professor = p.id 
+        LEFT JOIN disciplinas d ON al.id_disciplina = d.id 
+        WHERE COALESCE(age.id_sala, 1) = %s 
+        AND (age.tipo_aula = 'Fixa' OR (age.tipo_aula = 'Recuperacao' AND age.data_aula >= %s));
+    """, (sala_selecionada, datetime.now().strftime("%Y-%m-%d")))
 
-    .btn-limpar-premium {
-        position: absolute;
-        bottom: 5px;
-        right: 5px;
-        color: rgba(255, 255, 255, 0.4) !important;
-        background: none;
-        border: none;
-        padding: 2px;
-        font-size: 12px;
-        transition: color 0.2s ease, transform 0.1s ease;
-    }
+    # --- PALETA DE CORES PREMIUM PARA PROFESSORES (Dark Mode Friendly) ---
+    paleta_cores = [
+        "#D81B60", # Pink/Rose
+        "#1E88E5", # Blue
+        "#00897B", # Teal
+        "#F4511E", # Orange/Deep Orange
+        "#7CB342", # Green/Lime
+        "#8E24AA", # Purple
+        "#FFB300", # Amber
+        "#3949AB", # Indigo
+        "#00ACC1"  # Cyan
+    ]
 
-    .btn-limpar-premium:hover {
-        color: white !important;
-        transform: scale(1.1);
-    }
-</style>
+    mapa_agenda = {}
+    for row in cursor.fetchall():
+        # Desempacota normal (agora pegando o id_professor no final)
+        id_agenda, dia, hora, al_nome, prof_nome, disc_nome, tipo, id_prof_agenda = row
 
-<tbody>
-    {% for hora in horarios %}
-    <tr>
-        <th class="hora-col">{{ hora }}</th>
-        {% for dia in dias_semana %}
-            {% set slot = (dia, hora) %}
+        # --- MOTOR DE CÁLCULO DE COR ÚNICA POR PROFESSOR ---
+        # Usamos o operador de módulo (%) para escolher uma cor baseada no ID dele.
+        # Assim, o Professor ID 1 sempre terá a mesma cor, ID 2 outra, etc.
+        indice_cor = id_prof_agenda % len(paleta_cores)
+        cor_professor = paleta_cores[indice_cor]
+
+        hora_formatada = hora[:5]
+        nome_professor_logado = session["professor_nome"]
+        
+        # Define a classe visual (apenas para efeitos extras, o preenchimento é na TD)
+        eh_minha_aula = prof_nome == nome_professor_logado
+        classe_visual = "aula-block minha-aula" if eh_minha_aula else "aula-block outra-aula"
+        
+        # Ajuste para alunos excluídos
+        ex_aluno = al_nome if al_nome else "Órfão"
+        
+        # Monta o conteúdo de texto (limpo e chapado, sem fundo)
+        texto_aula = f"<div class='aluno'>{ex_aluno} ({disc_nome})</div>"
+        if tipo == "Recuperacao":
+            texto_aula = f"<div class='rec-badge'>REC</div>" + texto_aula
+
+        if not eh_minha_aula:
+            texto_aula += f"<div class='professor-nome'>Prof. {prof_nome}</div>"
             
-            {% if slot in mapa_agenda %}
-                {% set dados_aula = mapa_agenda[slot] %}
-                <td class="celula-ocupada" style="background-color: {{ dados_aula.cor }};">
-                    {{ dados_aula.html | safe }}
-                </td>
-            {% else %}
-                <td class="celula-vazia text-center" onclick="abrirModal('{{ dia }}', '{{ hora }}')">
-                    </td>
-            {% endif %}
-        {% endfor %}
-    </tr>
-    {% endfor %}
-</tbody>
+        # Mini botão de limpar estilizado
+        if eh_minha_aula or nome_professor_logado == "Bruno Moura":
+            texto_aula += f"<a href='/agenda/excluir/{id_agenda}?sala_id={sala_selecionada}' class='btn-limpar-premium' onclick='return confirm(\"Limpar este horário?\")'><i class='bi bi-trash3-fill'></i></a>"
+
+        # --- O PULO DO GATO ---
+        # Guardamos a COR e o HTML separadamente para injetar na TD no templates
+        mapa_agenda[(dia, hora_formatada)] = {
+            "html": f"<div class='{classe_visual}'>{texto_aula}</div>",
+            "cor": cor_professor # <--- Cor chapada para o preenchimento total
+        }
+
+    cursor.close(); conn.close()
+    return render_template("agenda.html", salas=all_salas, professores=all_professores, alunos=all_alunos, mapa_agenda=mapa_agenda, dias_semana=["Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado"], horarios=[f"{h:02d}:00" for h in range(8, 22)], sala_selecionada=sala_selecionada, erro=erro, id_professor_logado=session["professor_id"], nome_professor=nome_professor_logado)
 
 @app.route("/agenda/excluir/<int:id_agenda>")
 def excluir_agendamento(id_agenda):
