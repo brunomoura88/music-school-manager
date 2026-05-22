@@ -126,10 +126,12 @@
               </tr>
               {% endif %} 
               {% for m in mensalidades %}
-              <tr data-professor="{{ m.professor_name }}">
+              <tr data-professor="{{ m.professor_nome }}">
                 <td class="fw-bold nome-aluno-col">{{ m.aluno_nome }}</td>
                 <td><span class="badge bg-secondary">{{ m.disciplina_nome if m.disciplina_nome else 'Geral' }}</span></td>
-                <td><span class="text-muted small">👨‍🏫 {{ m.professor_name }}</span></td>
+                
+                <td><span class="text-muted small">👨‍🏫 {{ m.professor_nome }}</span></td>
+                
                 <td>{{ m.mes_competencia }}</td>
                 <td class="text-success fw-bold">R$ {{ "%.2f"|format(m.valor|float) }}</td>
                 <td class="fw-bold text-light-50">Dia {{ m.vencimento }}</td>
