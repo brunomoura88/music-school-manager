@@ -540,7 +540,6 @@ def editar_aluno(id):
         disciplinas=disciplinas_lista,
         professores=professores_lista,
     )
-
 @app.route("/agenda", methods=["GET", "POST"])
 def agenda():
     if "professor_id" not in session: return redirect("/")
@@ -550,6 +549,7 @@ def agenda():
         conn.commit()
     except Exception: pass
 
+    erro = None
     if request.method == "POST":
         id_sala = request.form.get("id_sala", 1)
         id_professor = session["professor_id"]
@@ -565,7 +565,8 @@ def agenda():
             conn.commit()
             cursor.close(); conn.close()
             return redirect(f"/agenda?sala_id={id_sala}")
-        except Exception: erro = "Conflito!"
+        except Exception: 
+            erro = "Conflito de Horário ou Erro no Agendamento!"
 
     sala_selecionada = request.args.get("sala_id", 1, type=int)
     cursor.execute("SELECT id, nome FROM salas ORDER BY nome;"); all_salas = cursor.fetchall()
@@ -582,7 +583,6 @@ def agenda():
         AND (age.tipo_aula = 'Fixa' OR (age.tipo_aula = 'Recuperacao' AND age.data_aula >= %s));
     """, (sala_selecionada, datetime.now().strftime("%Y-%m-%d")))
 
-    # --- PALETA DE CORES PREMIUM PARA PROFESSORES (Dark Mode Friendly) ---
     paleta_cores = [
         "#D81B60", # Pink/Rose
         "#1E88E5", # Blue
@@ -597,26 +597,33 @@ def agenda():
 
     mapa_agenda = {}
     for row in cursor.fetchall():
-        # Desempacota normal (agora pegando o id_professor no final)
-        id_agenda, dia, hora, al_nome, prof_nome, disc_nome, tipo, id_prof_agenda = row
+        # --- EXTRAÇÃO SEGURA COMPATÍVEL COM DICIONÁRIO (POSTGRES) OU TUPLA (SQLITE) ---
+        if isinstance(row, dict):
+            id_agenda = row.get("id")
+            dia = row.get("dia_semana")
+            hora = row.get("horario")
+            al_nome = row.get("al_nome")
+            prof_nome = row.get("pf_nome")
+            disc_nome = row.get("dp_nome") if row.get("dp_nome") else "Geral"
+            tipo = row.get("tipo_aula")
+            id_prof_agenda = row.get("id_professor")
+        else:
+            id_agenda, dia, hora, al_nome, prof_nome, disc_nome, tipo, id_prof_agenda = row
+            if not disc_nome: disc_nome = "Geral"
 
-        # --- MOTOR DE CÁLCULO DE COR ÚNICA POR PROFESSOR ---
-        # Usamos o operador de módulo (%) para escolher uma cor baseada no ID dele.
-        # Assim, o Professor ID 1 sempre terá a mesma cor, ID 2 outra, etc.
-        indice_cor = id_prof_agenda % len(paleta_cores)
+        # Garante que se o id_professor for nulo, não quebre o cálculo matemático
+        id_prof_seguro = id_prof_agenda if id_prof_agenda is not None else 0
+        indice_cor = id_prof_seguro % len(paleta_cores)
         cor_professor = paleta_cores[indice_cor]
 
+        if not hora: continue
         hora_formatada = hora[:5]
         nome_professor_logado = session["professor_nome"]
         
-        # Define a classe visual (apenas para efeitos extras, o preenchimento é na TD)
         eh_minha_aula = prof_nome == nome_professor_logado
         classe_visual = "aula-block minha-aula" if eh_minha_aula else "aula-block outra-aula"
+        ex_aluno = al_nome if al_nome else "Horário Disponível"
         
-        # Ajuste para alunos excluídos
-        ex_aluno = al_nome if al_nome else "Órfão"
-        
-        # Monta o conteúdo de texto (limpo e chapado, sem fundo)
         texto_aula = f"<div class='aluno'>{ex_aluno} ({disc_nome})</div>"
         if tipo == "Recuperacao":
             texto_aula = f"<div class='rec-badge'>REC</div>" + texto_aula
@@ -624,15 +631,12 @@ def agenda():
         if not eh_minha_aula:
             texto_aula += f"<div class='professor-nome'>Prof. {prof_nome}</div>"
             
-        # Mini botão de limpar estilizado
         if eh_minha_aula or nome_professor_logado == "Bruno Moura":
             texto_aula += f"<a href='/agenda/excluir/{id_agenda}?sala_id={sala_selecionada}' class='btn-limpar-premium' onclick='return confirm(\"Limpar este horário?\")'><i class='bi bi-trash3-fill'></i></a>"
 
-        # --- O PULO DO GATO ---
-        # Guardamos a COR e o HTML separadamente para injetar na TD no templates
         mapa_agenda[(dia, hora_formatada)] = {
             "html": f"<div class='{classe_visual}'>{texto_aula}</div>",
-            "cor": cor_professor # <--- Cor chapada para o preenchimento total
+            "cor": cor_professor
         }
 
     cursor.close(); conn.close()
