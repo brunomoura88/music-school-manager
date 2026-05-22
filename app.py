@@ -672,7 +672,6 @@ def pagar_mensalidade(id_mensalidade):
     conn.commit()
     conn.close()
     return redirect("/financeiro")
-    
 @app.route("/financeiro", methods=["GET", "POST"])
 def financeiro():
     if "professor_id" not in session: return redirect("/")
@@ -704,7 +703,10 @@ def financeiro():
     meses_disponiveis = [r["competencia"] if isinstance(r, dict) else r[0] for r in cursor.fetchall()]
     if datetime.now().strftime("%m/%Y") not in meses_disponiveis: meses_disponiveis.insert(0, datetime.now().strftime("%m/%Y"))
 
-    if nome_logado == "Bruno Moura":
+    # --- LISTA UNIFICADA DE GESTORES QUE ENXERGAM TODOS OS ALUNOS ---
+    gestores_escola = ["Bruno Moura", "Bruno Mota", "Raphael Russowsky"]
+
+    if nome_logado in gestores_escola:
         cursor.execute("""
             SELECT m.id, al.nome as aluno_nome, m.competencia, m.valor_devido, m.status, m.data_pagamento, d.nome as disciplina_nome, al.vencimento_mensalidade
             FROM mensalidades m 
@@ -765,10 +767,8 @@ def financeiro():
 
     cursor.close(); conn.close()
 
-    # CONTROLE DE ACESSO EXCLUSIVO AOS RELATÓRIOS
-    # Normalizamos removendo espaços extras para evitar erros de digitação
-    professores_autorizados = ["Bruno Moura", "Bruno Mota", "Raphael Russowsky"]
-    pode_ver_relatorio = nome_logado in professores_autorizados
+    # O VALOR DESTA VARIÁVEL REUTILIZA A LISTA DE CIMA PARA EXIBIR OS CARDS NO HTML
+    pode_ver_relatorio = nome_logado in gestores_escola
 
     return render_template(
         "financeiro.html", 
@@ -779,7 +779,7 @@ def financeiro():
         total_no_prazo=total_no_prazo,
         total_atrasado=total_atrasado,
         pode_ver_relatorio=pode_ver_relatorio
-    )
+    )    
 
 if __name__ == "__main__":
     porta = int(os.environ.get("PORT", 5000))
