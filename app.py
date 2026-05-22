@@ -541,7 +541,6 @@ def editar_aluno(id):
         professores=professores_lista,
     )
 
-
 @app.route("/agenda", methods=["GET", "POST"])
 def agenda():
     if "professor_id" not in session:
@@ -603,14 +602,16 @@ def agenda():
         for a in cursor.fetchall()
     ]
 
+    # Injetado age.id no SELECT para sabermos qual agendamento limpar
     cursor.execute(
-        "SELECT age.dia_semana, age.horario, al.nome as al_nome, p.nome as pf_nome, d.nome as dp_nome, age.tipo_aula FROM agenda age LEFT JOIN alunos al ON age.id_aluno = al.id LEFT JOIN professores p ON age.id_professor = p.id LEFT JOIN disciplinas d ON al.id_disciplina = d.id WHERE COALESCE(age.id_sala, 1) = %s AND (age.tipo_aula = 'Fixa' OR (age.tipo_aula = 'Recuperacao' AND age.data_aula >= %s));",
+        "SELECT age.id, age.dia_semana, age.horario, al.nome as al_nome, p.nome as pf_nome, d.nome as dp_nome, age.tipo_aula FROM agenda age LEFT JOIN alunos al ON age.id_aluno = al.id LEFT JOIN professores p ON age.id_professor = p.id LEFT JOIN disciplinas d ON al.id_disciplina = d.id WHERE COALESCE(age.id_sala, 1) = %s AND (age.tipo_aula = 'Fixa' OR (age.tipo_aula = 'Recuperacao' AND age.data_aula >= %s));",
         (sala_selecionada, datetime.now().strftime("%Y-%m-%d")),
     )
 
     mapa_agenda = {}
     for row in cursor.fetchall():
         if isinstance(row, dict):
+            id_agenda = row.get("id")
             dia, hora, num_aluno, num_prof, num_curso, tipo = (
                 row.get("dia_semana"),
                 row.get("horario"),
@@ -620,13 +621,14 @@ def agenda():
                 row.get("tipo_aula"),
             )
         else:
+            id_agenda = row[0]
             dia, hora, num_aluno, num_prof, num_curso, tipo = (
-                row[0],
                 row[1],
                 row[2],
                 row[3],
-                row[4] if row[4] else "Geral",
-                row[5],
+                row[4],
+                row[5] if row[5] else "Geral",
+                row[6],
             )
 
         if not hora:
@@ -634,13 +636,22 @@ def agenda():
         hora_formatada = hora[:5]
         eh_minha_aula = num_prof == session["professor_nome"]
         classe_destaque = "aula-minha-card" if eh_minha_aula else "aula-outra-card"
+        
+        # Ajuste para quando o aluno foi excluído e o card ficou órfão (None)
+        ex_aluno = num_aluno if num_aluno else "Horário Desatualizado"
+        
         texto_aula = (
-            f"🚨 [REC] {num_aluno} ({num_curso})"
+            f"🚨 [REC] {ex_aluno} ({num_curso})"
             if tipo == "Recuperacao"
-            else f"{num_aluno} ({num_curso})"
+            else f"{ex_aluno} ({num_curso})"
         )
         if not eh_minha_aula:
             texto_aula += f" <br><small class='text-muted'>Prof. {num_prof}</small>"
+            
+        # Adiciona o link de limpar para o dono do horário ou se o logado for você (Bruno Moura)
+        if eh_minha_aula or session["professor_nome"] == "Bruno Moura":
+            texto_aula += f"<br><a href='/agenda/excluir/{id_agenda}?sala_id={sala_selecionada}' class='btn btn-sm btn-link text-danger p-0 fw-bold border-0 mt-1' style='font-size: 11px; text-decoration: none;' onclick='return confirm(\"Deseja desmarcar e liberar este horário?\")'><i class='bi bi-trash3-fill me-1'></i>Limpar</a>"
+
         mapa_agenda[(dia, hora_formatada)] = (
             f"<div class='{classe_destaque}'>{texto_aula}</div>"
         )
@@ -658,123 +669,25 @@ def agenda():
         sala_selecionada=sala_selecionada,
         erro=erro,
         id_professor_logado=session["professor_id"],
-        nome_professor=session["professor_nome"],
+        name_professor=session["professor_nome"],
     )
 
-
-@app.route("/baixar_pagamento/<int:id>/<int:status_pago>")
-def baixar_pagamento(id, status_pago):
-    conn = obter_conexao()
-    cursor = conn.cursor()
-    cursor.execute("UPDATE alunos SET pago = %s WHERE id = %s;", (status_pago, id))
-    conn.commit()
-    conn.close()
-    return redirect("/financeiro")
-
-
-@app.route("/financeiro", methods=["GET", "POST"])
-def financeiro():
-    if "professor_id" not in session:
-        return redirect("/")
-    nome_logado = session["professor_nome"]
-    competencia_atual = (
-        request.form.get("competencia_filtro")
-        if request.method == "POST" and request.form.get("competencia_filtro")
-        else datetime.now().strftime("%m/%Y")
-    )
-
-    conn = obter_conexao()
-    cursor = conn.cursor()
-    is_postgres = hasattr(conn, "encoding") or conn.__class__.__name__ == "Connection"
-    id_auto = (
-        "SERIAL PRIMARY KEY" if is_postgres else "INTEGER PRIMARY KEY AUTOINCREMENT"
-    )
-    text_type = "VARCHAR(255)" if is_postgres else "TEXT"
-    real_type = "NUMERIC(10,2)" if is_postgres else "REAL"
-
+@app.route("/agenda/excluir/<int:id_agenda>")
+def excluir_agendamento(id_agenda):
+    if "professor_id" not in session: return redirect("/")
+    
+    conn = obter_conexao(); cursor = conn.cursor()
+    sala_id = request.args.get("sala_id", 1)
+    
     try:
-        cursor.execute(
-            f"CREATE TABLE IF NOT EXISTS mensalidades (id {id_auto}, id_aluno INTEGER NOT NULL, competencia {text_type} NOT NULL, valor_devido {real_type}, status {text_type} DEFAULT 'Pendente', data_pagamento {text_type});"
-        )
+        cursor.execute("DELETE FROM agenda WHERE id = %s;", (id_agenda,))
         conn.commit()
-    except Exception:
-        pass
-
-    if competencia_atual == datetime.now().strftime("%m/%Y"):
-        cursor.execute("SELECT id, valor_mensalidade FROM alunos;")
-        for aluno in cursor.fetchall():
-            id_aluno, valor = (
-                (aluno["id"], aluno["valor_mensalidade"])
-                if isinstance(aluno, dict)
-                else (aluno[0], aluno[1])
-            )
-            cursor.execute(
-                "SELECT id FROM mensalidades WHERE id_aluno = %s AND competencia = %s;",
-                (id_aluno, competencia_atual),
-            )
-            if not cursor.fetchone():
-                cursor.execute(
-                    "INSERT INTO mensalidades (id_aluno, competencia, valor_devido, status) VALUES (%s, %s, %s, 'Pendente');",
-                    (id_aluno, competencia_atual, valor),
-                )
-        conn.commit()
-
-    cursor.execute(
-        "SELECT DISTINCT competencia FROM mensalidades ORDER BY competencia DESC;"
-    )
-    meses_disponiveis = [
-        r["competencia"] if isinstance(r, dict) else r[0] for r in cursor.fetchall()
-    ]
-    if datetime.now().strftime("%m/%Y") not in meses_disponiveis:
-        meses_disponiveis.insert(0, datetime.now().strftime("%m/%Y"))
-
-    if nome_logado == "Bruno Moura":
-        cursor.execute(
-            "SELECT m.id, al.nome as aluno_nome, m.competencia, m.valor_devido, m.status, m.data_pagamento, d.nome as disciplina_nome FROM mensalidades m JOIN alunos al ON m.id_aluno = al.id LEFT JOIN disciplinas d ON al.id_disciplina = d.id WHERE m.competencia = %s;",
-            (competencia_atual,),
-        )
-    else:
-        cursor.execute(
-            "SELECT m.id, al.nome as aluno_nome, m.competencia, m.valor_devido, m.status, m.data_pagamento, d.nome as disciplina_nome FROM mensalidades m JOIN alunos al ON m.id_aluno = al.id LEFT JOIN disciplinas d ON al.id_disciplina = d.id WHERE m.competencia = %s AND al.id_professor = %s;",
-            (competencia_atual, session["professor_id"]),
-        )
-
-    lista_mensalidades = []
-    for row in cursor.fetchall():
-        if isinstance(row, dict):
-            lista_mensalidades.append(
-                {
-                    "id": row.get("id"),
-                    "aluno_nome": row.get("aluno_nome"),
-                    "mes_competencia": row.get("competencia"),
-                    "valor": row.get("valor_devido"),
-                    "status": row.get("status"),
-                    "data_pagamento": row.get("data_pagamento"),
-                    "disciplina_nome": row.get("disciplina_nome"),
-                }
-            )
-        else:
-            lista_mensalidades.append(
-                {
-                    "id": row[0],
-                    "aluno_nome": row[1],
-                    "mes_competencia": row[2],
-                    "valor": row[3],
-                    "status": row[4],
-                    "data_pagamento": row[5],
-                    "disciplina_nome": row[6],
-                }
-            )
-
-    cursor.close()
-    conn.close()
-    return render_template(
-        "financeiro.html",
-        mensalidades=lista_mensalidades,
-        competencia=competencia_atual,
-        meses_opcoes=meses_disponiveis,
-    )
-
+    except Exception as e:
+        print(f"Erro ao limpar horário da agenda: {e}")
+    finally:
+        cursor.close(); conn.close()
+        
+    return redirect(f"/agenda?sala_id={sala_id}")
 
 @app.route("/financeiro/pagar/<int:id_mensalidade>")
 def pagar_mensalidade(id_mensalidade):
