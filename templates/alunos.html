@@ -6,6 +6,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Estúdio A - Gerenciar Alunos</title>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
     <style>
         body { background-color: #1a1a1a; color: white; }
         .navbar-estudio { background-color: #000000; border-bottom: 3px solid #800000; }
@@ -77,17 +78,19 @@
 
             <div class="col-12 col-lg-8">
                 <div class="p-3" style="background-color: #262626; border-radius: 8px;">
-                    <h4 class="fw-bold mb-3 text-uppercase">Alunos Cadastrados</h4>
-                    <div class="mb-3 d-flex justify-content-end">
-    <div class="input-group" style="max-width: 300px;">
-        <span class="input-group-text bg-dark border-secondary text-muted">
-            <i class="bi bi-search"></i>
-        </span>
-        <input type="text" id="buscaAluno" class="form-control bg-dark text-white border-secondary" placeholder="Buscar aluno por nome..." onkeyup="filtrarAlunosCadastrados()">
-    </div>
-</div>
+                    <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+                        <h4 class="fw-bold text-uppercase m-0">Alunos Cadastrados</h4>
+                        
+                        <div class="input-group input-group-sm" style="max-width: 260px;">
+                            <span class="input-group-text bg-dark border-secondary text-muted">
+                                <i class="bi bi-search"></i>
+                            </span>
+                            <input type="text" id="buscaAluno" class="form-control bg-dark text-white border-secondary" placeholder="Buscar aluno por nome..." onkeyup="filtrarAlunosCadastrados()">
+                        </div>
+                    </div>
+
                     <div class="table-responsive">
-                        <table class="table table-dark table-striped align-middle mb-0" style="font-size: 14px;">
+                        <table class="table table-dark table-striped table-hover align-middle mb-0" id="tabelaAlunos" style="font-size: 14px;">
                             <thead>
                                 <tr>
                                     <th>ID</th>
@@ -96,36 +99,38 @@
                                     <th>Professor</th>
                                     <th>Venc.</th>
                                     <th>Valor</th>
-                                    <th>Ações</th>
+                                    <th class="text-center">Ações</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 {% if not alunos %}
-                                <tr>
+                                <tr id="linhaVazia">
                                     <td colspan="7" class="text-center text-muted py-3">Nenhum aluno cadastrado ainda.</td>
                                 </tr>
                                 {% endif %}
                                 {% for a in alunos %}
-                                    <tr>
-                                        <td>{{ a.id }}</td>
-                                        <td class="fw-bold nome-aluno-cadastro">{{ aluno.nome }}</td>
-                                        <td><span class="badge bg-secondary">{{ a.disciplina_nome if a.disciplina_nome else 'Geral' }}</span></td>
-                                        <td>{{ a.professor_nome if a.professor_nome else 'Não vinculado' }}</td>
-                                        <td>Dia {{ a.vencimento_mensalidade }}</td>
-                                        <td>R$ {{ "%.2f"|format(a.valor_mensalidade|float) if a.valor_mensalidade else '0.00' }}</td>
-                                        
-                                        <td class="text-nowrap align-middle">
-                                            <a href="/aluno/contrato/{{ a.id }}" class="btn btn-warning btn-sm fw-bold me-1" target="_blank">
-                                                📄 Contrato
-                                            </a>
-                                            <a href="/aluno/editar/{{ a.id }}" class="btn btn-primary btn-sm fw-bold me-1">
-                                                ✏️ Editar
-                                            </a>
-                                            <a href="/excluir_aluno/{{ a.id }}" class="btn btn-danger btn-sm fw-bold" onclick="return confirm('Tem certeza?')">
-                                                Excluir
-                                            </a>
-                                        </td>
-                                    </tr>
+                                <tr>
+                                    <td>{{ a.id }}</td>
+                                    
+                                    <td class="fw-bold nome-aluno-cadastro text-white">{{ a.nome }}</td>
+                                    
+                                    <td><span class="badge bg-secondary">{{ a.disciplina_nome if a.disciplina_nome else 'Geral' }}</span></td>
+                                    <td>{{ a.professor_nome if a.professor_nome else 'Não vinculado' }}</td>
+                                    <td>Dia {{ a.vencimento_mensalidade }}</td>
+                                    <td class="text-success fw-bold">R$ {{ "%.2f"|format(a.valor_mensalidade|float) if a.valor_mensalidade else '0.00' }}</td>
+                                    
+                                    <td class="text-center text-nowrap">
+                                        <a href="/aluno/contrato/{{ a.id }}" class="btn btn-warning btn-sm fw-bold me-1" target="_blank">
+                                            <i class="bi bi-file-earmark-text"></i> Contrato
+                                        </a>
+                                        <a href="/aluno/editar/{{ a.id }}" class="btn btn-primary btn-sm fw-bold me-1">
+                                            <i class="bi bi-pencil"></i> Editar
+                                        </a>
+                                        <a href="/excluir_aluno/{{ a.id }}" class="btn btn-danger btn-sm fw-bold" onclick="return confirm('Tem certeza que deseja excluir este aluno?')">
+                                            Excluir
+                                        </a>
+                                    </td>
+                                </tr>
                                 {% endfor %}
                             </tbody>
                         </table>
@@ -134,26 +139,28 @@
             </div>
         </div>
     </div>
-<script>
-function filtrarAlunosCadastrados() {
-    var input = document.getElementById("buscaAluno");
-    var filtro = input.value.toUpperCase();
-    // Certifique-se de que sua tabela tem uma classe ou ID de fácil acesso, ou use o seletor genérico:
-    var tabela = document.querySelector("table");
-    var linhas = tabela.getElementsByTagName("tbody")[0].getElementsByTagName("tr");
 
-    for (var i = 0; i < linhas.length; i++) {
-        var colunaNome = linhas[i].getElementsByClassName("nome-aluno-cadastro")[0];
-        if (colunaNome) {
-            var textoNome = colunaNome.textContent || colunaNome.innerText;
-            if (textoNome.toUpperCase().indexOf(filtro) > -1) {
-                linhas[i].style.display = "";
-            } else {
-                linhas[i].style.display = "none";
+    <script>
+    function filtrarAlunosCadastrados() {
+        var input = document.getElementById("buscaAluno");
+        var filtro = input.value.toUpperCase();
+        var tabela = document.getElementById("tabelaAlunos");
+        var linhas = tabela.getElementsByTagName("tbody")[0].getElementsByTagName("tr");
+
+        for (var i = 0; i < linhas.length; i++) {
+            if (linhas[i].id === "linhaVazia") continue;
+
+            var colunaNome = linhas[i].getElementsByClassName("nome-aluno-cadastro")[0];
+            if (colunaNome) {
+                var textoNome = colunaNome.textContent || colunaNome.innerText;
+                if (textoNome.toUpperCase().indexOf(filtro) > -1) {
+                    linhas[i].style.display = "";
+                } else {
+                    linhas[i].style.display = "none";
+                }
             }
         }
     }
-}
-</script>
+    </script>
 </body>
 </html>
