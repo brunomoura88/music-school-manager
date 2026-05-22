@@ -92,7 +92,7 @@
                 <th>Curso</th>
                 <th>Mês</th>
                 <th>Valor Devido</th>
-                <th>Status</th>
+                <th>Vencimento</th> <th>Status</th>
                 <th>Data do Pago</th>
                 <th class="text-center">Ações</th>
               </tr>
@@ -100,51 +100,40 @@
             <tbody>
               {% if not mensalidades %}
               <tr>
-                <td colspan="7" class="text-center text-muted py-4">
+                <td colspan="8" class="text-center text-muted py-4">
                   Nenhuma movimentação para este mês ainda.
                 </td>
               </tr>
-              {% endif %} {% for m in mensalidades %}
+              {% endif %} 
+              {% for m in mensalidades %}
               <tr>
-                <td class="fw-bold">
-                  {{ m.aluno_nome if m.aluno_nome else m[1] }}
-                </td>
+                <td class="fw-bold">{{ m.aluno_nome }}</td>
+                <td><span class="badge bg-secondary">{{ m.disciplina_nome if m.disciplina_nome else 'Geral' }}</span></td>
+                <td>{{ m.mes_competencia }}</td>
+                <td class="text-success fw-bold">R$ {{ "%.2f"|format(m.valor|float) }}</td>
+                
+                <td class="fw-bold text-light">Dia {{ m.vencimento }}</td>
+                
                 <td>
-                  <span class="badge bg-secondary"
-                    >{{ m.disciplina_nome if m.disciplina_nome else (m[6] if
-                    m[6] else 'Geral') }}</span
-                  >
-                </td>
-                <td>{{ m.mes_competencia if m.mes_competencia else m[2] }}</td>
-                <td class="text-success fw-bold">
-                  R$ {{ "%.2f"|format(m.valor|float if m.valor else m[3]|float)
-                  }}
-                </td>
-                <td>
-                  {% set status_m = m.status if m.status else m[4] %} {% if
-                  status_m == 'Pendente' %}
-                  <span class="badge bg-danger">⚠️ Pendente</span>
+                  {% if m.status_visual == 'Pago' %}
+                    <span class="badge bg-success">✅ Pago</span>
+                  {% elif m.status_visual == 'No Prazo' %}
+                    <span class="badge bg-info text-dark">⏳ No Prazo</span>
+                  {% elif m.status_visual == 'Vence Hoje' %}
+                    <span class="badge bg-warning text-dark">⚠️ Vence Hoje</span>
                   {% else %}
-                  <span class="badge bg-success">✅ Pago</span>
+                    <span class="badge bg-danger">🚨 Atrasado</span>
                   {% endif %}
                 </td>
-                <td>
-                  {% set dt_pago = m.data_pagamento if m.data_pagamento else
-                  m[5] %} {{ dt_pago if dt_pago else '-' }}
-                </td>
+                
+                <td>{{ m.data_pagamento if m.data_pagamento else '-' }}</td>
                 <td class="text-center">
-                  {% set id_m = m.id if m.id else m[0] %} {% if status_m ==
-                  'Pendente' %}
-                  <a
-                    href="/financeiro/pagar/{{ id_m }}"
-                    class="btn btn-sm btn-success fw-bold"
-                  >
+                  {% if m.status_visual != 'Pago' %}
+                  <a href="/financeiro/pagar/{{ m.id }}" class="btn btn-sm btn-success fw-bold">
                     <i class="bi bi-cash me-1"></i> Receber
                   </a>
                   {% else %}
-                  <button class="btn btn-sm btn-outline-secondary" disabled>
-                    ✔ Concluído
-                  </button>
+                  <button class="btn btn-sm btn-outline-secondary" disabled>✔ Concluído</button>
                   {% endif %}
                 </td>
               </tr>
