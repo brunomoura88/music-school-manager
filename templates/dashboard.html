@@ -97,11 +97,23 @@
 </head>
 <body>
 
-    <nav class="navbar navbar-dark bg-dark border-bottom border-secondary px-4 py-2">
-        <a class="navbar-brand" href="#">
-            <img src="{{ url_for('static', filename='img/logo.png') }}" alt="Estúdio A Logo">
+   <nav class="navbar navbar-dark bg-transparent px-4 py-3">
+      <div class="container-fluid d-flex align-items-center justify-content-between">
+        
+        <a class="navbar-brand p-0" href="/dashboard">
+          <img src="/static/img/logo.png" alt="Estúdio A" height="40" style="object-fit: contain" />
         </a>
-        <a href="/logout" class="btn btn-outline-danger px-4">Sair</a>
+        
+        <div class="d-flex align-items-center gap-3">
+          <div class="text-white-50 small fw-bold d-flex align-items-center bg-dark px-3 py-2 rounded border border-secondary" style="font-size: 13px;">
+            <i class="bi bi-person-circle text-warning me-2" style="font-size: 16px;"></i>
+            Olá, <span class="text-white ms-1">{{ nome_professor }}</span>
+          </div>
+          
+          <a href="/logout" class="btn btn-outline-danger btn-sm px-3 fw-bold">Sair</a>
+        </div>
+
+      </div>
     </nav>
 
     <div class="container main-container">
