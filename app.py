@@ -596,7 +596,6 @@ def agenda():
 
     mapa_agenda = {}
     for row in cursor.fetchall():
-        # --- EXTRAÇÃO SEGURA COMPATÍVEL COM DICIONÁRIO (POSTGRES) OU TUPLA (SQLITE) ---
         if isinstance(row, dict):
             id_agenda = row.get("id")
             dia = row.get("dia_semana")
@@ -610,20 +609,38 @@ def agenda():
             id_agenda, dia, hora, al_nome, prof_nome, disc_nome, tipo, id_prof_agenda = row
             if not disc_nome: disc_nome = "Geral"
 
-        # Garante que se o id_professor for nulo, não quebre o cálculo matemático
+        if not hora: continue
+
+        # --- O PULO DO GATO PARA HORÁRIOS QUEBRADOS ---
+        # Transformamos a string de hora (ex: "14:15:00" ou "14:30") em objeto de tempo do Python
+        try:
+            if isinstance(hora, str):
+                partes_hora = hora.split(":")
+                hora_objeto = datetime.strptime(f"{partes_hora[0]}:{partes_hora[1]}", "%H:%M")
+            else:
+                # Caso o banco já traga um objeto time do Python
+                hora_objeto = datetime.combine(datetime.today(), hora)
+        except Exception:
+            continue
+
+        # Capturamos a HORA CHEIA base (ex: se for 14:15 ou 14:30, a hora_base será "14:00")
+        hora_base = f"{hora_objeto.hour:02d}:00"
+        # Capturamos o horário real formatado para mostrar no card (ex: "14:15")
+        horario_real_formatado = hora_objeto.strftime("%H:%M")
+
         id_prof_seguro = id_prof_agenda if id_prof_agenda is not None else 0
         indice_cor = id_prof_seguro % len(paleta_cores)
         cor_professor = paleta_cores[indice_cor]
 
-        if not hora: continue
-        hora_formatada = hora[:5]
         nome_professor_logado = session["professor_nome"]
-        
         eh_minha_aula = prof_nome == nome_professor_logado
         classe_visual = "aula-block minha-aula" if eh_minha_aula else "aula-block outra-aula"
         ex_aluno = al_nome if al_nome else "Horário Disponível"
         
-        texto_aula = f"<div class='aluno'>{ex_aluno} ({disc_nome})</div>"
+        # Injetamos o HORÁRIO REAL quebrado no texto para aparecer visualmente no card!
+        texto_aula = f"<div class='small text-white-50 mb-1 fw-bold'><i class='bi bi-clock me-1'></i>{horario_real_formatado}</div>"
+        texto_aula += f"<div class='aluno'>{ex_aluno} ({disc_nome})</div>"
+        
         if tipo == "Recuperacao":
             texto_aula = f"<div class='rec-badge'>REC</div>" + texto_aula
 
@@ -633,11 +650,11 @@ def agenda():
         if eh_minha_aula or nome_professor_logado == "Bruno Moura":
             texto_aula += f"<a href='/agenda/excluir/{id_agenda}?sala_id={sala_selecionada}' class='btn-limpar-premium' onclick='return confirm(\"Limpar este horário?\")'><i class='bi bi-trash3-fill'></i></a>"
 
-        mapa_agenda[(dia, hora_formatada)] = {
+        # AGORA SALVAMOS PELA HORA_BASE (assim o HTML encontra o registro na linha daquela hora)
+        mapa_agenda[(dia, hora_base)] = {
             "html": f"<div class='{classe_visual}'>{texto_aula}</div>",
             "cor": cor_professor
         }
-
     cursor.close(); conn.close()
     return render_template("agenda.html", salas=all_salas, professores=all_professores, alunos=all_alunos, mapa_agenda=mapa_agenda, dias_semana=["Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado"], horarios=[f"{h:02d}:00" for h in range(8, 22)], sala_selecionada=sala_selecionada, erro=erro, id_professor_logado=session["professor_id"], nome_professor=nome_professor_logado)
 
