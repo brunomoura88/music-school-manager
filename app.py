@@ -407,42 +407,49 @@ def alunos():
 
 @app.route("/aluno/contrato/<int:id>")
 def aluno_contrato(id):
-    if "professor_id" not in session:
-        return redirect("/")
-    conn = obter_conexao()
-    cursor = conn.cursor()
-    cursor.execute(
-        "SELECT al.id, al.nome, al.vencimento_mensalidade, al.valor_mensalidade, d.nome as disciplina_nome, al.cpf_rg, al.endereco FROM alunos al LEFT JOIN disciplinas d ON al.id_disciplina = d.id WHERE al.id = %s;",
-        (id,),
-    )
-    res = cursor.fetchone()
-    cursor.close()
-    conn.close()
-    if not res:
-        return "Aluno não encontrado", 404
+    if "professor_id" not in session: return redirect("/")
+    
+    conn = obter_conexao(); cursor = conn.cursor()
+    
+    # Fazemos um LEFT JOIN com a tabela de professores para capturar o nome do professor do aluno
+    cursor.execute("""
+        SELECT al.*, p.nome as professor_nome, d.nome as disciplina_nome 
+        FROM alunos al
+        LEFT JOIN professores p ON al.id_professor = p.id
+        LEFT JOIN disciplinas d ON al.id_disciplina = d.id
+        WHERE al.id = %s;
+    """, (id,))
+    
+    row = cursor.fetchone()
+    cursor.close(); conn.close()
+    
+    if not row: return "Aluno não encontrado", 404
 
-    if isinstance(res, dict):
+    # Tratamento para dicionário ou tupla dependendo do seu banco
+    if isinstance(row, dict):
         aluno_dados = {
-            "id": res.get("id"),
-            "nome": res.get("nome"),
-            "vencimento_mensalidade": res.get("vencimento_mensalidade"),
-            "valor_mensalidade": res.get("valor_mensalidade"),
-            "disciplina_nome": res.get("disciplina_nome"),
-            "cpf_rg": res.get("cpf_rg") if res.get("cpf_rg") else "",
-            "endereco": res.get("endereco") if res.get("endereco") else "",
+            "nome": row.get("nome"),
+            "cpf_rg": row.get("cpf_rg") if row.get("cpf_rg") else "____________________",
+            "endereco": row.get("endereco") if row.get("endereco") else "____________________",
+            "valor": row.get("valor_mensalidade"),
+            "vencimento": row.get("vencimento_mensalidade"),
+            "disciplina": row.get("disciplina_nome") if row.get("disciplina_nome") else "Música",
+            "professor": row.get("professor_nome") if row.get("professor_nome") else "Não Informado"
         }
     else:
+        # Se for tupla, ajuste de acordo com a ordem das suas colunas. 
+        # Exemplo genérico mapeando o nome do professor e disciplina retornados no final:
         aluno_dados = {
-            "id": res[0],
-            "nome": res[1],
-            "vencimento_mensalidade": res[2],
-            "valor_mensalidade": res[3],
-            "disciplina_nome": res[4],
-            "cpf_rg": res[5] if res[5] else "",
-            "endereco": res[6] if res[6] else "",
+            "nome": row[1],
+            "cpf_rg": row[2] if row[2] else "____________________",
+            "endereco": row[3] if row[3] else "____________________",
+            "valor": row[4],
+            "vencimento": row[5],
+            "disciplina": row[-1] if row[-1] else "Música",
+            "professor": row[-2] if row[-2] else "Não Informado"
         }
-    return render_template("contrato.html", aluno=aluno_dados)
 
+    return render_template("contrato.html", aluno=aluno_dados)
 
 @app.route("/excluir_aluno/<int:id>")
 def excluir_aluno(id):
