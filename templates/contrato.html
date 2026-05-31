@@ -47,9 +47,15 @@
                 <td width="30%"><strong>Aula de Música:</strong></td>
                 <td><span class="text-primary fw-bold">{{ aluno.disciplina_nome if aluno.disciplina_nome else 'Geral' }}</span></td>
             </tr>
+            
             <tr>
-                <td><strong>Contratado - Nome:</strong></td>
-                <td>Bruno Moura - ESTÚDIO A</td>
+                <td><strong>Professor Responsável:</strong></td>
+                <td><span class="fw-bold text-dark">{{ aluno.professor_nome if aluno.professor_nome else 'Bruno Moura' }}</span></td>
+            </tr>
+
+            <tr>
+                <td><strong>Contratado - Empresa:</strong></td>
+                <td>ESTÚDIO A - Música Prática</td>
             </tr>
             <tr>
                 <td><strong>CNPJ / CPF:</strong></td>
@@ -114,13 +120,13 @@
         <div class="row text-center" style="margin-top: 80px;">
             <div class="col-6">
                 <div style="border-top: 1px solid #333; margin: 0 20px; padding-top: 5px;">
-                    <strong>CONTRATADO</strong><br>
-                    Estúdio A - Música Prática
+                    <strong>CONTRATADO (Pelo Estúdio A)</strong><br>
+                    <span class="fw-bold">{{ aluno.professor_nome if aluno.professor_nome else 'Bruno Moura' }}</span>
                 </div>
             </div>
             <div class="col-6">
                 <div style="border-top: 1px solid #333; margin: 0 20px; padding-top: 5px;">
-                    <strong>CONTRATANTE</strong><br>
+                    <strong>CONTRATANTE (Aluno)</strong><br>
                     {{ aluno.nome }}
                 </div>
             </div>
