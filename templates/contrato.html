@@ -50,7 +50,22 @@
             
             <tr>
                 <td><strong>Professor Responsável:</strong></td>
-                <td><span class="fw-bold text-dark">{{ aluno.professor_nome if aluno.professor_nome else (aluno.prof_responsavel if aluno.prof_responsavel else 'Bruno Moura') }}</span></td>
+                <td>
+    <span class="fw-bold text-dark">
+        {% if aluno.professor_nome %}
+            {{ aluno.professor_nome }}
+        {% elif aluno.prof_responsavel %}
+            {{ aluno.prof_responsavel }}
+        {% elif aluno.16 %} 
+            {# Caso o banco envie como tupla longa #}
+            {{ aluno.16 }}
+        {% elif professor_nome %}
+            {{ professor_nome }}
+        {% else %}
+            Beatriz
+        {% endif %}
+    </span>
+            </td>
             </tr>
 
             <tr>
@@ -133,11 +148,21 @@
 
         <div class="row text-center" style="margin-top: 80px;">
             <div class="col-6">
-                <div style="border-top: 1px solid #333; margin: 0 20px; padding-top: 5px;">
-                    <strong>CONTRATADO (Pelo Estúdio A)</strong><br>
-                    <span class="fw-bold">{{ aluno.professor_nome if aluno.professor_nome else (aluno.prof_responsavel if aluno.prof_responsavel else 'Bruno Moura') }}</span>
-                </div>
-            </div>
+    <div style="border-top: 1px solid #333; margin: 0 20px; padding-top: 5px;">
+        <strong>CONTRATADO (Pelo Estúdio A)</strong><br>
+        <span class="fw-bold">
+            {% if aluno.professor_nome %}
+                {{ aluno.professor_nome }}
+            {% elif aluno.prof_responsavel %}
+                {{ aluno.prof_responsavel }}
+            {% elif professor_nome %}
+                {{ professor_nome }}
+            {% else %}
+                Beatriz
+            {% endif %}
+        </span>
+    </div>
+</div>
             <div class="col-6">
                 <div style="border-top: 1px solid #333; margin: 0 20px; padding-top: 5px;">
                     <strong>CONTRATANTE (Aluno)</strong><br>
