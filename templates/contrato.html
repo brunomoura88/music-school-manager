@@ -40,17 +40,17 @@
             CONTRATO DE PRESTAÇÃO DE SERVIÇOS - AULAS DE MÚSICA
         </div>
 
-        <p>Pelo presente instrumento particular de contrato de prestação de serviços de:</p>
+        <p>Pelo presente instrumentor particular de contrato de prestação de serviços de:</p>
         
         <table class="table table-bordered bg-light mb-4">
             <tr>
                 <td width="30%"><strong>Aula de Música:</strong></td>
-                <td><span class="text-primary fw-bold">{{ aluno.disciplina_nome if aluno.disciplina_nome else 'Geral' }}</span></td>
+                <td><span class="text-primary fw-bold">{{ aluno.disciplina_nome if aluno.disciplina_nome else (aluno.curso if aluno.curso else 'Geral') }}</span></td>
             </tr>
             
             <tr>
                 <td><strong>Professor Responsável:</strong></td>
-                <td><span class="fw-bold text-dark">{{ aluno.professor_nome if aluno.professor_nome else 'Bruno Moura' }}</span></td>
+                <td><span class="fw-bold text-dark">{{ aluno.professor_nome if aluno.professor_nome else (aluno.prof_responsavel if aluno.prof_responsavel else 'Bruno Moura') }}</span></td>
             </tr>
 
             <tr>
@@ -84,7 +84,21 @@
         <p><strong>Parágrafo ÚNICO.</strong> O CONTRATADO se responsabiliza em fornecer uma aula por semana, com duração de 50 minutos a uma hora.</p>
 
         <h5 class="titulo-secao fw-bold border-bottom pb-1 mt-4">DO VALOR E DOS PAGAMENTOS</h5>
-        <p><span class="clausula">Cláusula 2ª</span> - Em caráter de pagamento, será cobrado por mês o valor de <span class="fw-bold text-success">R$ {{ "%.2f"|format(aluno.valor_mensalidade|float) if aluno.valor_mensalidade else '0.00' }}</span> (e não por aula).</p>
+        <p>
+            <span class="clausula">Cláusula 2ª</span> - Em caráter de pagamento, será cobrado por mês o valor de 
+            <span class="fw-bold text-success">
+                {% set valor_base = aluno.valor_mensalidade|float if aluno.valor_mensalidade else (aluno.valor|float if aluno.valor else 0.0) %}
+                {% if valor_base > 0 %}
+                    R$ {{ "%.2f"|format(valor_base) }}
+                {% else %}
+                    {% if aluno.disciplina_nome == 'Bateria' or aluno.curso == 'Bateria' %}
+                        R$ 250.00
+                    {% else %}
+                        R$ 220.00
+                    {% endif %}
+                {% endif %}
+            </span> (e não por aula).
+        </p>
         <p><span class="clausula">Cláusula 3ª</span> - Falta sem justificativa prévia de 24h será contado como aula normal.</p>
         <p><strong>Parágrafo ÚNICO:</strong> Caso haja justificativa terá o contratante direito a recuperar essa aula, com limite de uma falta por mês.</p>
         <p><span class="clausula">Cláusula 4º</span> - Não haverá aulas nos feriados, podendo ser discutido entre professor e aluno.</p>
@@ -100,7 +114,7 @@
             <p>Aulas Práticas de Música</p>
         </div>
 
-        <p><span class="clausula">Cláusula 5ª</span> - O vencimento da mensalidade será sempre no <strong>dia {{ aluno.vencimento_mensalidade if aluno.vencimento_mensalidade else '01' }}</strong> de cada mês (com primeiro pagamento no dia que começou as aulas).</p>
+        <p><span class="clausula">Cláusula 5ª</span> - O vencimento da mensalidade será sempre no <strong>dia {{ aluno.vencimento_mensalidade if aluno.vencimento_mensalidade else (aluno.vencimento if aluno.vencimento else '10') }}</strong> de cada mês (com primeiro pagamento no dia que começou as aulas).</p>
         <p><strong>Parágrafo ÚNICO:</strong> Em caso de atraso o contratado reserva-se ao Direito de cobrar 10% de multa do valor da mensalidade, e 1% de juro ao mês.</p>
 
         <h5 class="titulo-secao fw-bold border-bottom pb-1 mt-4">DA AUTORIZAÇÃO DO USO DE IMAGEM</h5>
@@ -121,7 +135,7 @@
             <div class="col-6">
                 <div style="border-top: 1px solid #333; margin: 0 20px; padding-top: 5px;">
                     <strong>CONTRATADO (Pelo Estúdio A)</strong><br>
-                    <span class="fw-bold">{{ aluno.professor_nome if aluno.professor_nome else 'Bruno Moura' }}</span>
+                    <span class="fw-bold">{{ aluno.professor_nome if aluno.professor_nome else (aluno.prof_responsavel if aluno.prof_responsavel else 'Bruno Moura') }}</span>
                 </div>
             </div>
             <div class="col-6">
