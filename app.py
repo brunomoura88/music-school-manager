@@ -404,52 +404,53 @@ def alunos():
         professores=professores_lista,
     )
 
-
-@app.route("/aluno/contrato/<int:id>")
-def aluno_contrato(id):
+@app.route("/aluno/contrato/<id>")
+def contrato(id):
     if "professor_id" not in session: return redirect("/")
     
     conn = obter_conexao(); cursor = conn.cursor()
     
-    # Fazemos um LEFT JOIN com a tabela de professores para capturar o nome do professor do aluno
+    # --- QUERY COMPLETA TRAZENDO OS NOMES DOS PROFESSORES E DISCIPLINAS ---
     cursor.execute("""
-        SELECT al.*, p.nome as professor_nome, d.nome as disciplina_nome 
+        SELECT 
+            al.id, 
+            al.nome, 
+            al.cpf_rg, 
+            al.endereco, 
+            al.vencimento_mensalidade, 
+            al.valor_mensalidade,
+            p.nome AS professor_nome,
+            d.nome AS disciplina_nome
         FROM alunos al
         LEFT JOIN professores p ON al.id_professor = p.id
         LEFT JOIN disciplinas d ON al.id_disciplina = d.id
         WHERE al.id = %s;
     """, (id,))
     
-    row = cursor.fetchone()
-    cursor.close(); conn.close()
+    aluno_dados = cursor.fetchone()
     
-    if not row: return "Aluno não encontrado", 404
-
-    # Tratamento para dicionário ou tupla dependendo do seu banco
-    if isinstance(row, dict):
-        aluno_dados = {
-            "nome": row.get("nome"),
-            "cpf_rg": row.get("cpf_rg") if row.get("cpf_rg") else "____________________",
-            "endereco": row.get("endereco") if row.get("endereco") else "____________________",
-            "valor": row.get("valor_mensalidade"),
-            "vencimento": row.get("vencimento_mensalidade"),
-            "disciplina": row.get("disciplina_nome") if row.get("disciplina_nome") else "Música",
-            "professor": row.get("professor_nome") if row.get("professor_nome") else "Não Informado"
+    # Se o banco retornar como dicionário (PostgreSQL)
+    if isinstance(aluno_dados, dict):
+        aluno = aluno_dados
+    elif aluno_dados:
+        # Se retornar como tupla (SQLite local), mapeamos manualmente para o HTML ler as chaves
+        aluno = {
+            "id": aluno_dados[0],
+            "nome": aluno_dados[1],
+            "cpf_rg": aluno_dados[2],
+            "endereco": aluno_dados[3],
+            "vencimento_mensalidade": aluno_dados[4],
+            "valor_mensalidade": aluno_dados[5],
+            "professor_nome": aluno_dados[6],
+            "disciplina_nome": aluno_dados[7]
         }
     else:
-        # Se for tupla, ajuste de acordo com a ordem das suas colunas. 
-        # Exemplo genérico mapeando o nome do professor e disciplina retornados no final:
-        aluno_dados = {
-            "nome": row[1],
-            "cpf_rg": row[2] if row[2] else "____________________",
-            "endereco": row[3] if row[3] else "____________________",
-            "valor": row[4],
-            "vencimento": row[5],
-            "disciplina": row[-1] if row[-1] else "Música",
-            "professor": row[-2] if row[-2] else "Não Informado"
-        }
+        cursor.close(); conn.close()
+        return "Aluno não encontrado", 404
 
-    return render_template("contrato.html", aluno=aluno_dados)
+    cursor.close(); conn.close()
+    
+    return render_template("contrato.html", aluno=aluno)
 
 @app.route("/excluir_aluno/<int:id>")
 def excluir_aluno(id):
