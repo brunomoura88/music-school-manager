@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="pt-br">
 <head>
@@ -27,7 +26,7 @@
             background-color: #1a1a1a;
             border: 1px solid #2a2a2a;
             border-radius: 12px;
-            padding: 20px;
+            padding: 15px;
             box-shadow: 0 8px 24px rgba(0,0,0,0.5);
         }
         /* Customizando o FullCalendar para Modo Escuro */
@@ -43,14 +42,40 @@
             --fc-today-bg-color: rgba(212, 175, 55, 0.05);
         }
         .fc .fc-toolbar-title {
-            font-size: 1.5rem;
+            font-size: 1.2rem; /* Reduzido para caber no mobile */
             font-weight: bold;
             text-transform: capitalize;
             color: #d4af37;
         }
         .fc a { color: #ffffff; text-decoration: none; }
-        .fc-timegrid-slot { height: 3.5em !important; } /* Aumenta o tamanho da linha do horário */
+        .fc-timegrid-slot { height: 3.5em !important; }
         
+        /* Ajustes específicos de Responsividade (Mobile First) */
+        @media (max-width: 767px) {
+            .fc .fc-toolbar {
+                flex-direction: column;
+                gap: 10px;
+            }
+            .fc .fc-toolbar-title {
+                font-size: 1.1rem;
+                text-align: center;
+                display: block;
+                margin: 5px 0;
+            }
+            .calendar-container {
+                padding: 8px;
+                border-radius: 8px;
+            }
+            .fc-header-toolbar {
+                margin-bottom: 1rem !important;
+            }
+            /* Suaviza as colunas espremidas das datas no topo */
+            .fc-col-header-cell-cushion {
+                font-size: 11px;
+                padding: 2px !important;
+            }
+        }
+
         /* Modal Estilizado */
         .modal-content-custom {
             background-color: #1e1e1e;
@@ -65,21 +90,21 @@
 </head>
 <body>
 
-    <nav class="navbar navbar-dark navbar-estudio px-4 py-3">
+    <nav class="navbar navbar-dark navbar-estudio px-3 py-2 px-md-4 py-md-3">
         <div class="container-fluid d-flex align-items-center justify-content-between">
-            <span class="navbar-brand p-0 fw-bold text-uppercase tracking-wider">
-                <i class="bi bi-calendar3 text-warning me-2"></i> Agenda Mensal / Recorrência
+            <span class="navbar-brand p-0 fw-bold text-uppercase tracking-wider fs-6 fs-md-5">
+                <i class="bi bi-calendar3 text-warning me-1"></i> Agenda
             </span>
-            <div class="d-flex align-items-center gap-3">
-                <button class="btn btn-warning btn-sm fw-bold px-3" data-bs-toggle="modal" data-bs-target="#modalNovoEvento">
-                    <i class="bi bi-plus-circle-fill me-1"></i> Novo Agendamento
+            <div class="d-flex align-items-center gap-2">
+                <button class="btn btn-warning btn-sm fw-bold px-2 px-md-3" data-bs-toggle="modal" data-bs-target="#modalNovoEvento">
+                    <i class="bi bi-plus-circle-fill me-1"></i> Novo
                 </button>
-                <a href="/dashboard" class="btn btn-outline-light btn-sm px-3">Voltar ao Painel</a>
+                <a href="/dashboard" class="btn btn-outline-light btn-sm px-2 px-md-3">Voltar</a>
             </div>
         </div>
     </nav>
 
-    <div class="container my-5">
+    <div class="container-fluid container-md my-3 my-md-5">
         <div class="calendar-container">
             <div id="calendar"></div>
         </div>
@@ -93,7 +118,7 @@
                     <button type="button" class="btn-close btn-close-white" data-bs-shadow="none" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <form action="/api/eventos/salvar" method="POST">
-                    <div class="modal-body p-4">
+                    <div class="modal-body p-3 p-md-4">
                         
                         <div class="mb-3">
                             <label class="form-label small text-white-50">Tipo de Evento</label>
@@ -111,17 +136,16 @@
                         </div>
 
                         <div class="mb-3" id="blocoAlunos">
-                            <label class="form-label small text-white-50">Alunos (Segure CTRL para selecionar Duplas/Trios)</label>
+                            <label class="form-label small text-white-50">Alunos (Segure CTRL para Duplas/Trios)</label>
                             <select class="form-select bg-dark text-white border-secondary" name="alunos_ids" multiple style="height: 110px;">
                                 {% for a in alunos %}
                                 <option value="{{ a.id }}">{{ a.nome }}</option>
                                 {% endfor %}
                             </select>
-                            <div class="form-text text-muted" style="font-size: 11px;">Mantenha pressionado o botão Ctrl (ou Command no Mac) para marcar mais de um aluno.</div>
                         </div>
 
-                        <div class="row g-3 mb-3">
-                            <div class="col-md-6" id="blocoProfessor">
+                        <div class="row g-2 mb-3">
+                            <div class="col-6" id="blocoProfessor">
                                 <label class="form-label small text-white-50">Professor</label>
                                 <select class="form-select bg-dark text-white border-secondary" name="id_professor">
                                     <option value="">Selecione...</option>
@@ -130,7 +154,7 @@
                                     {% endfor %}
                                 </select>
                             </div>
-                            <div class="col-md-6" id="blocoDisciplina">
+                            <div class="col-6" id="blocoDisciplina">
                                 <label class="form-label small text-white-50">Disciplina</label>
                                 <select class="form-select bg-dark text-white border-secondary" name="id_disciplina">
                                     <option value="">Selecione...</option>
@@ -141,16 +165,16 @@
                             </div>
                         </div>
 
-                        <div class="row g-3 mb-3">
-                            <div class="col-md-4">
-                                <label class="form-label small text-white-50">Data do Evento</label>
+                        <div class="row g-2 mb-3">
+                            <div class="col-12 col-md-4">
+                                <label class="form-label small text-white-50">Data</label>
                                 <input type="date" class="form-control bg-dark text-white border-secondary" name="data_evento" required>
                             </div>
-                            <div class="col-md-4">
+                            <div class="col-6 col-md-4">
                                 <label class="form-label small text-white-50">Início</label>
                                 <input type="time" class="form-control bg-dark text-white border-secondary" name="horario_inicio" required>
                             </div>
-                            <div class="col-md-4">
+                            <div class="col-6 col-md-4">
                                 <label class="form-label small text-white-50">Término</label>
                                 <input type="time" class="form-control bg-dark text-white border-secondary" name="horario_fim" required>
                             </div>
@@ -168,7 +192,7 @@
                     </div>
                     <div class="modal-footer border-top border-dark bg-opacity-10 bg-black">
                         <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal">Cancelar</button>
-                        <button type="submit" class="btn btn-warning btn-sm fw-bold px-4">Salvar na Agenda</button>
+                        <button type="submit" class="btn btn-warning btn-sm fw-bold px-4">Salvar</button>
                     </div>
                 </form>
             </div>
@@ -180,32 +204,36 @@
     <script>
         document.addEventListener('DOMContentLoaded', function() {
             var calendarEl = document.getElementById('calendar');
+            
+            # Inteligência de Responsividade: Se a tela for menor que 768px, abre na visão de "Dia"
+            var visaoInicial = window.innerWidth < 768 ? 'timeGridDay' : 'timeGridWeek';
+
             var calendar = new FullCalendar.Calendar(calendarEl, {
                 locale: 'pt-br',
-                initialView: 'timeGridWeek', // Abre direto na visão de Semana (igual ao formato antigo do estúdio)
+                initialView: visaoInicial,
                 headerToolbar: {
                     left: 'prev,next today',
                     center: 'title',
-                    right: 'dayGridMonth,timeGridWeek,timeGridDay' // Abas de visualização superior
+                    right: window.innerWidth < 768 ? 'timeGridWeek,timeGridDay' : 'dayGridMonth,timeGridWeek,timeGridDay'
                 },
-                slotMinTime: '07:00:00', // Horário de início do dia na escola
-                slotMaxTime: '22:00:00', // Horário limite da noite
+                slotMinTime: '07:00:00',
+                slotMaxTime: '22:00:00',
                 allDaySlot: false,
-                editable: false,
-                selectable: true,
-                events: '/api/eventos', // Puxa os dados dinâmicos da rota Python que criamos!
+                height: 'auto',
+                contentHeight: 'auto',
+                handleWindowResize: true,
+                expandRows: true,
+                events: '/api/eventos',
                 
                 eventClick: function(info) {
-                    // Detalhe futuro: Quando clicar no card da aula, disparar a exclusão ou edição
                     if(confirm("Deseja ver ou remover o evento: " + info.event.title + "?")) {
-                        // Lógica de remoção será inserida na rota de exclusão
+                        // Implementação futura de exclusão
                     }
                 }
             });
             calendar.render();
         });
 
-        // Oculta ou exibe campos do formulário dependendo do tipo do agendamento
         function ajustarFormulario() {
             var tipo = document.getElementById("tipoEvento").value;
             var blocoAlunos = document.getElementById("blocoAlunos");
