@@ -815,6 +815,40 @@ def api_eventos():
     # Retorna o JSON puro mastigado para o FullCalendar desenhar na tela de forma instantânea
     return jsonify(eventos_js)
 
+@app.route("/agenda-v2")
+def agenda_v2():
+    if "professor_id" not in session:
+        return redirect("/")
+        
+    conn = obter_conexao()
+    cursor = conn.cursor()
+
+    # Puxa os professores para carregar no Select do formulário
+    cursor.execute("SELECT id, nome FROM professores ORDER BY nome;")
+    professores_banco = cursor.fetchall()
+    professores = [{"id": r[0], "nome": r[1]} if not isinstance(r, dict) else r for r in professores_banco]
+
+    # Puxa os alunos ativos para podermos alocar nas duplas/trios/individuais
+    cursor.execute("SELECT id, nome FROM alunos ORDER BY nome;")
+    alunos_banco = cursor.fetchall()
+    alunos = [{"id": r[0], "nome": r[1]} if not isinstance(r, dict) else r for r in alunos_banco]
+
+    # Puxa as disciplinas
+    cursor.execute("SELECT id, nome FROM disciplinas ORDER BY nome;")
+    disciplinas_banco = cursor.fetchall()
+    disciplinas = [{"id": r[0], "nome": r[1]} if not isinstance(r, dict) else r for r in disciplinas_banco]
+
+    cursor.close()
+    conn.close()
+
+    return render_template(
+        "agenda_v2.html", 
+        professores=professores, 
+        alunos=alunos, 
+        disciplinas=disciplinas,
+        nome_professor=session.get("professor_nome", "Professor")
+    )
+
 @app.route("/financeiro", methods=["GET", "POST"])
 def financeiro():
     if "professor_id" not in session: return redirect("/")
