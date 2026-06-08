@@ -717,12 +717,17 @@ def api_eventos():
     conn = obter_conexao()
     cursor = conn.cursor()
 
-    # Query ajustada para garantir que o agrupamento não oculte bloqueios sem professor
+    # Query padronizada explicitando as colunas para evitar desalinhamento de índices
     if nome_logado in gestores_escola:
         query_eventos = """
             SELECT 
-                ev.id, ev.tipo_evento, ev.titulo, ev.data_evento, 
-                ev.horario_inicio, ev.horario_fim, ev.recorrencia,
+                ev.id, 
+                ev.tipo_evento, 
+                ev.titulo, 
+                ev.data_evento, 
+                ev.horario_inicio, 
+                ev.horario_fim, 
+                ev.recorrencia,
                 string_agg(al.nome, ' & ') AS alunos_nomes, 
                 p.nome AS prof_nome
             FROM eventos_agenda ev
@@ -736,15 +741,20 @@ def api_eventos():
     else:
         query_eventos = """
             SELECT 
-                ev.id, ev.tipo_evento, ev.titulo, ev.data_evento, 
-                ev.horario_inicio, ev.horario_fim, ev.recorrencia,
+                ev.id, 
+                ev.tipo_evento, 
+                ev.titulo, 
+                ev.data_evento, 
+                ev.horario_inicio, 
+                ev.horario_fim, 
+                ev.recorrencia,
                 string_agg(al.nome, ' & ') AS alunos_nomes, 
                 p.nome AS prof_nome
             FROM eventos_agenda ev
             LEFT JOIN evento_alunos ea ON ev.id = ea.id_evento
             LEFT JOIN alunos al ON ea.id_aluno = al.id
             LEFT JOIN professores p ON ev.id_professor = p.id
-            WHERE (ev.data_evento BETWEEN %s AND %s) AND (ev.id_professor = %s OR ev.tipo_evento = 'Bloqueio')
+            WHERE (ev.data_evento BETWEEN %s AND %s) AND (ev.id_professor = %s OR ev.tipo_evento = 'Bloqueio' OR ev.tipo_evento = 'Feriado')
             GROUP BY ev.id, p.nome;
         """
         cursor.execute(query_eventos, (dt_inicio, dt_fim, session["professor_id"]))
@@ -760,17 +770,17 @@ def api_eventos():
     }
 
     for row in eventos_banco:
-        # GARANTIA: Mapeamento dinâmico se vier como dicionário ou tupla ordinal
-        if isinstance(row, dict):
-            ev_id = row['id']
-            tipo = row['tipo_evento']
-            titulo = row['titulo']
-            dt = row['data_evento']
-            h_ini = row['horario_inicio']
-            h_fim = row['horario_fim']
-            rec = row['recorrencia']
-            al_nomes = row['alunos_nomes']
-            p_nome = row['prof_nome']
+        # MAPEAMENTO SEGURO: Não importa se o banco devolve dicionário ou tupla, convertemos para variáveis limpas
+        if isinstance(row, dict) or hasattr(row, 'get'):
+            ev_id = row.get('id')
+            tipo = row.get('tipo_evento')
+            titulo = row.get('titulo')
+            dt = row.get('data_evento')
+            h_ini = row.get('horario_inicio')
+            h_fim = row.get('horario_fim')
+            rec = row.get('recorrencia')
+            al_nomes = row.get('alunos_nomes')
+            p_nome = row.get('prof_nome')
         else:
             ev_id = row[0]
             tipo = row[1]
@@ -782,17 +792,17 @@ def api_eventos():
             al_nomes = row[7] if len(row) > 7 else ""
             p_nome = row[8] if len(row) > 8 else ""
 
-        # Conversão de segurança caso os horários venham como objetos nativos de tempo do Python
+        # Conversão de segurança para strings limpas (independente do formato do banco)
         h_ini_str = h_ini.strftime("%H:%M:%S") if hasattr(h_ini, 'strftime') else str(h_ini)
         h_fim_str = h_fim.strftime("%H:%M:%S") if hasattr(h_fim, 'strftime') else str(h_fim)
         dt_iso = dt.isoformat() if hasattr(dt, 'isoformat') else str(dt)
 
-        # LÓGICA RECORRÊNCIA DA DIARISTA
-        if rec == "Quinzenal_Sim_Nao" or tipo == "Bloqueio" and rec == "Quinzenal_Sim_Nao":
+        # LÓGICA DA DIARISTA (Recorrência Quinzenal)
+        if rec == "Quinzenal_Sim_Nao":
             data_base_diarista = date(2026, 6, 1)
             curr_date = dt_inicio
             while curr_date <= dt_fim:
-                if curr_date.weekday() == 0: # Segunda-feira
+                if curr_date.weekday() == 0:  # Segunda-feira
                     semanas_passadas = (curr_date - data_base_diarista).days // 7
                     if semanas_passadas % 2 == 0:
                         eventos_js.append({
@@ -807,10 +817,12 @@ def api_eventos():
                 curr_date += timedelta(days=1)
             continue
 
-        # FORMATADOR DE EXIBIÇÃO DE AULAS NORMAIS
+        # CONFIGURAÇÃO DO FORMATO DO CARD
         titulo_bloco = titulo
         if al_nomes:
             titulo_bloco = f"{al_nomes} ({p_nome if p_nome else 'Professor'})"
+        elif tipo == "Bloqueio":
+            titulo_bloco = titulo if titulo else "Bloqueio de Horário"
 
         eventos_js.append({
             "id": str(ev_id),
