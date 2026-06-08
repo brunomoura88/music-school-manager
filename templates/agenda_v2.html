@@ -205,7 +205,7 @@
         document.addEventListener('DOMContentLoaded', function() {
             var calendarEl = document.getElementById('calendar');
             
-            # Inteligência de Responsividade: Se a tela for menor que 768px, abre na visão de "Dia"
+            // Inteligência de Responsividade: Se a tela for menor que 768px, abre na visão de "Dia"
             var visaoInicial = window.innerWidth < 768 ? 'timeGridDay' : 'timeGridWeek';
 
             var calendar = new FullCalendar.Calendar(calendarEl, {
