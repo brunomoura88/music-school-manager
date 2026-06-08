@@ -1112,6 +1112,8 @@ def migrar_agenda():
         agendas_antigas = cursor.fetchall()
 
         contador = 0
+        pula_erros = 0
+        
         for item in agendas_antigas:
             if isinstance(item, dict) or hasattr(item, 'get'):
                 dia_texto = item.get("dia_semana")
@@ -1122,40 +1124,47 @@ def migrar_agenda():
             else:
                 dia_texto, hora_original, id_prof, id_aluno, tipo = item[1], item[2], item[3], item[4], item[5]
 
-            # Segurança: Se não tiver aluno ou dia mapeado, pula para o próximo
             if not id_aluno or dia_texto not in dias_datas_v2:
                 continue
 
-            # Ajusta o formato da hora (trata se vier '14:00' ou '14:00:00')
             partes = str(hora_original).strip().split(":")
             h_real = int(partes[0])
             m_real = int(partes[1]) if len(partes) > 1 else 0
             
             h_ini_str = f"{h_real:02d}:{m_real:02d}:00"
-            h_fim_str = f"{(h_real + 1):02d}:{m_real:02d}:00" # Soma 1 hora de aula padrão
+            h_fim_str = f"{(h_real + 1):02d}:{m_real:02d}:00"
 
             data_start_real = dias_datas_v2[dia_texto]
             tipo_convertido = "Aula" if tipo == "Regular" or tipo == "Fixa" else "Recuperacao"
 
-            # 2. INSERE NA TABELA PRINCIPAL 'eventos_agenda' COMO RECORRÊNCIA SEMANAL
-            query_insere = """
-                INSERT INTO eventos_agenda (titulo, data_evento, horario_inicio, horario_fim, id_professor, tipo_evento, recorrencia)
-                VALUES (%s, %s, %s, %s, %s, %s, 'Semanal') RETURNING id;
-            """
-            cursor.execute(query_insere, ("Aula Regular", data_start_real, h_ini_str, h_fim_str, id_prof, tipo_convertido))
+            # Criamos um ponto de salvamento para cada linha. Se der erro em um aluno, desfazemos só essa linha
+            cursor.execute("SAVEPOINT linha_migracao;")
             
-            res_novo = cursor.fetchone()
-            id_evento_novo = res_novo['id'] if isinstance(res_novo, dict) else res_novo[0]
+            try:
+                # 2. INSERE NA TABELA PRINCIPAL 'eventos_agenda'
+                query_insere = """
+                    INSERT INTO eventos_agenda (titulo, data_evento, horario_inicio, horario_fim, id_professor, tipo_evento, recorrencia)
+                    VALUES (%s, %s, %s, %s, %s, %s, 'Semanal') RETURNING id;
+                """
+                cursor.execute(query_insere, ("Aula Regular", data_start_real, h_ini_str, h_fim_str, id_prof, tipo_convertido))
+                
+                res_novo = cursor.fetchone()
+                id_evento_novo = res_novo['id'] if isinstance(res_novo, dict) else res_novo[0]
 
-            # 3. INSERE NA TABELA INTERMEDIÁRIA 'evento_alunos' VINCULANDO O ALUNO
-            cursor.execute(
-                "INSERT INTO evento_alunos (id_evento, id_aluno) VALUES (%s, %s);",
-                (id_evento_novo, id_aluno)
-            )
-            contador += 1
+                # 3. INSERE NA TABELA INTERMEDIÁRIA 'evento_alunos'
+                cursor.execute(
+                    "INSERT INTO evento_alunos (id_evento, id_aluno) VALUES (%s, %s);",
+                    (id_evento_novo, id_aluno)
+                )
+                cursor.execute("RELEASE SAVEPOINT linha_migracao;")
+                contador += 1
+            except Exception:
+                # Se der erro de chave (aluno inexistente), cancela só este insert e continua o loop
+                cursor.execute("ROLLBACK TO SAVEPOINT linha_migracao;")
+                pula_erros += 1
 
         conn.commit()
-        mensagem = f"✅ SUCESSO! {contador} horários fixos migrados com perfeição para a Agenda V2.0!"
+        mensagem = f"✅ SUCESSO! {contador} horários migrados com perfeição. ({pula_erros} registros antigos pulados por falta de cadastro de aluno)."
     except Exception as e:
         conn.rollback()
         mensagem = f"❌ ERRO CRÍTICO NA MIGRAÇÃO: {str(e)}"
