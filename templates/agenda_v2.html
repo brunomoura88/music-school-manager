@@ -26,7 +26,7 @@
             background-color: #1a1a1a;
             border: 1px solid #2a2a2a;
             border-radius: 12px;
-            padding: 15px;
+            padding: 20px;
             box-shadow: 0 8px 24px rgba(0,0,0,0.5);
         }
         /* Customizando o FullCalendar para Modo Escuro */
@@ -42,7 +42,7 @@
             --fc-today-bg-color: rgba(212, 175, 55, 0.05);
         }
         .fc .fc-toolbar-title {
-            font-size: 1.2rem; /* Reduzido para caber no mobile */
+            font-size: 1.2rem;
             font-weight: bold;
             text-transform: capitalize;
             color: #d4af37;
@@ -50,6 +50,17 @@
         .fc a { color: #ffffff; text-decoration: none; }
         .fc-timegrid-slot { height: 3.5em !important; }
         
+        /* CORREÇÃO DO TOPO DA TABELA (DIAS DA SEMANA) */
+        .fc-col-header-cell {
+            background-color: #222222 !important; /* Tira o fundo branco e coloca cinza escuro */
+        }
+        .fc-col-header-cell-cushion {
+            color: #d4af37 !important; /* Força o texto dos dias (dom, seg, ter) a ficar Dourado */
+            font-weight: bold;
+            display: inline-block;
+            padding: 5px !important;
+        }
+
         /* Ajustes específicos de Responsividade (Mobile First) */
         @media (max-width: 767px) {
             .fc .fc-toolbar {
@@ -69,10 +80,9 @@
             .fc-header-toolbar {
                 margin-bottom: 1rem !important;
             }
-            /* Suaviza as colunas espremidas das datas no topo */
             .fc-col-header-cell-cushion {
                 font-size: 11px;
-                padding: 2px !important;
+                padding: 4px 2px !important;
             }
         }
 
