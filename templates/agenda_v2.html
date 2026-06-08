@@ -236,8 +236,10 @@
                 events: '/api/eventos',
                 
                 eventClick: function(info) {
-                    if(confirm("Deseja ver ou remover o evento: " + info.event.title + "?")) {
-                        // Implementação futura de exclusão
+                    if (confirm("Deseja mesmo REMOVER o agendamento de: " + info.event.title + "?")) {
+                        // Força a mudança de endereço da página inteira no navegador!
+                        // Isso simula você digitando o link direto na barra de endereços, ativando o GET do Python
+                        window.location.href = "/api/eventos/excluir/" + info.event.id;
                     }
                 }
             });
