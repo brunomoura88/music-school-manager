@@ -1085,6 +1085,85 @@ def api_eventos_excluir(id_evento):
     # Força a página inteira a recarregar na marra
     return redirect("/agenda-v2")
 
+@app.route("/migrar-agenda")
+def migrar_agenda():
+    # Trava de segurança: apenas o gestor logado pode rodar a migração
+    if "professor_id" not in session or session.get("professor_nome") != "Bruno Moura":
+        return "<h3>❌ Acesso não autorizado.</h3>", 403
+
+    conn = obter_conexao()
+    cursor = conn.cursor()
+
+    # Mapeamento para descobrir a data real da semana de virada de chave (Junho de 2026)
+    # Segunda-feira da próxima semana será dia 15/06/2026
+    dias_datas_v2 = {
+        "Segunda": date(2026, 6, 15),
+        "Terça": date(2026, 6, 16),
+        "Quarta": date(2026, 6, 17),
+        "Quinta": date(2026, 6, 18),
+        "Sexta": date(2026, 6, 19),
+        "Sábado": date(2026, 6, 20),
+        "Domingo": date(2026, 6, 21)
+    }
+
+    try:
+        # 1. Puxa todos os horários fixos e ativos da tabela antiga
+        cursor.execute("SELECT id, dia_semana, horario, id_professor, id_aluno, tipo_aula FROM agenda;")
+        agendas_antigas = cursor.fetchall()
+
+        contador = 0
+        for item in agendas_antigas:
+            if isinstance(item, dict) or hasattr(item, 'get'):
+                dia_texto = item.get("dia_semana")
+                hora_original = item.get("horario")
+                id_prof = item.get("id_professor")
+                id_aluno = item.get("id_aluno")
+                tipo = item.get("tipo_aula")
+            else:
+                dia_texto, hora_original, id_prof, id_aluno, tipo = item[1], item[2], item[3], item[4], item[5]
+
+            # Segurança: Se não tiver aluno ou dia mapeado, pula para o próximo
+            if not id_aluno or dia_texto not in dias_datas_v2:
+                continue
+
+            # Ajusta o formato da hora (trata se vier '14:00' ou '14:00:00')
+            partes = str(hora_original).strip().split(":")
+            h_real = int(partes[0])
+            m_real = int(partes[1]) if len(partes) > 1 else 0
+            
+            h_ini_str = f"{h_real:02d}:{m_real:02d}:00"
+            h_fim_str = f"{(h_real + 1):02d}:{m_real:02d}:00" # Soma 1 hora de aula padrão
+
+            data_start_real = dias_datas_v2[dia_texto]
+            tipo_convertido = "Aula" if tipo == "Regular" or tipo == "Fixa" else "Recuperacao"
+
+            # 2. INSERE NA TABELA PRINCIPAL 'eventos_agenda' COMO RECORRÊNCIA SEMANAL
+            query_insere = """
+                INSERT INTO eventos_agenda (titulo, data_evento, horario_inicio, horario_fim, id_professor, tipo_evento, recorrencia)
+                VALUES (%s, %s, %s, %s, %s, %s, 'Semanal') RETURNING id;
+            """
+            cursor.execute(query_insere, ("Aula Regular", data_start_real, h_ini_str, h_fim_str, id_prof, tipo_convertido))
+            
+            res_novo = cursor.fetchone()
+            id_evento_novo = res_novo['id'] if isinstance(res_novo, dict) else res_novo[0]
+
+            # 3. INSERE NA TABELA INTERMEDIÁRIA 'evento_alunos' VINCULANDO O ALUNO
+            cursor.execute(
+                "INSERT INTO evento_alunos (id_evento, id_aluno) VALUES (%s, %s);",
+                (id_evento_novo, id_aluno)
+            )
+            contador += 1
+
+        conn.commit()
+        mensagem = f"✅ SUCESSO! {contador} horários fixos migrados com perfeição para a Agenda V2.0!"
+    except Exception as e:
+        conn.rollback()
+        mensagem = f"❌ ERRO CRÍTICO NA MIGRAÇÃO: {str(e)}"
+    finally:
+        cursor.close()
+        conn.close()
+
+    return f"<h3>{mensagem}</h3><br><a href='/agenda-v2'>Ir para a Nova Agenda</a>"
 
 if __name__ == "__main__":
     porta = int(os.environ.get("PORT", 5000))
