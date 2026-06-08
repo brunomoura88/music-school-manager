@@ -835,7 +835,34 @@ def api_eventos():
     cursor.close()
     conn.close()
     return jsonify(eventos_js)
+@app.route("/api/eventos/excluir/<id_evento>")
+def api_eventos_excluir(id_evento):
+    if "professor_id" not in session:
+        return redirect("/")
 
+    # Se o ID começar com 'rec-', significa que é um bloco virtual da diarista
+    # Nós extraímos o ID real do banco removendo o prefixo
+    if str(id_evento).startswith("rec-"):
+        id_real = id_evento.split("-")[1]
+    else:
+        id_real = id_evento
+
+    conn = obter_conexao()
+    cursor = conn.cursor()
+
+    try:
+        # Deleta o evento principal (a tabela evento_alunos morre junto por causa do ON DELETE CASCADE)
+        cursor.execute("DELETE FROM eventos_agenda WHERE id = %s;", (int(id_real),))
+        conn.commit()
+    except Exception as e:
+        conn.rollback()
+        print(f"Erro ao excluir evento da agenda avançada: {e}")
+    finally:
+        cursor.close()
+        conn.close()
+
+    # Redireciona de volta para atualizar o calendário na tela
+    return redirect("/agenda-v2")
 
 @app.route("/agenda-v2")
 def agenda_v2():
