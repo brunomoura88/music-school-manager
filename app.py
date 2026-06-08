@@ -835,13 +835,13 @@ def api_eventos():
     cursor.close()
     conn.close()
     return jsonify(eventos_js)
-@app.route("/api/eventos/excluir/<id_evento>")
+
+@app.route("/api/eventos/excluir/<id_evento>", methods=["DELETE", "GET"])
 def api_eventos_excluir(id_evento):
     if "professor_id" not in session:
-        return redirect("/")
+        return jsonify({"erro": "Não autorizado"}), 401
 
-    # Se o ID começar com 'rec-', significa que é um bloco virtual da diarista
-    # Nós extraímos o ID real do banco removendo o prefixo
+    # Trata se for o bloco virtual quinzenal da diarista
     if str(id_evento).startswith("rec-"):
         id_real = id_evento.split("-")[1]
     else:
@@ -851,18 +851,25 @@ def api_eventos_excluir(id_evento):
     cursor = conn.cursor()
 
     try:
-        # Deleta o evento principal (a tabela evento_alunos morre junto por causa do ON DELETE CASCADE)
+        # Executa o delete no banco usando o ID numérico real
         cursor.execute("DELETE FROM eventos_agenda WHERE id = %s;", (int(id_real),))
         conn.commit()
+        sucesso = True
     except Exception as e:
         conn.rollback()
         print(f"Erro ao excluir evento da agenda avançada: {e}")
+        sucesso = False
     finally:
         cursor.close()
         conn.close()
 
-    # Redireciona de volta para atualizar o calendário na tela
-    return redirect("/agenda-v2")
+    if sucesso:
+        # Se a requisição veio do clique direto (GET), aceita o redirect tradicional de segurança
+        if request.method == "GET":
+            return redirect("/agenda-v2")
+        return jsonify({"sucesso": True, "mensagem": "Removido com sucesso!"}), 200
+    else:
+        return jsonify({"sucesso": False, "mensagem": "Erro interno ao deletar."}), 500
 
 @app.route("/agenda-v2")
 def agenda_v2():
