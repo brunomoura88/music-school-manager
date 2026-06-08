@@ -982,6 +982,71 @@ def financeiro():
         usuario_logado=nome_logado
     )
 
+@app.route("/api/eventos/salvar", methods=["POST"])
+def api_eventos_salvar():
+    if "professor_id" not in session:
+        return redirect("/")
+
+    # Coleta os dados vindos do formulário do Modal do FullCalendar
+    tipo_evento = request.form.get("tipo_evento")
+    titulo = request.form.get("titulo")
+    descricao = request.form.get("descricao", "")
+    data_evento = request.form.get("data_evento")
+    horario_inicio = request.form.get("horario_inicio")
+    horario_fim = request.form.get("horario_fim")
+    id_professor = request.form.get("id_professor")
+    id_disciplina = request.form.get("id_disciplina")
+    recorrencia = request.form.get("recorrencia", "Nenhuma")
+
+    # Tratamento para capturar múltiplos IDs de alunos selecionados (Duplas/Trios!)
+    alunos_ids = request.form.getlist("alunos_ids")
+
+    # Se for bloqueio ou feriado, limpa os campos de relacionamento que não existem
+    if tipo_evento in ["Bloqueio", "Feriado"]:
+        id_professor = None
+        id_disciplina = None
+        alunos_ids = []
+
+    conn = obter_conexao()
+    cursor = conn.cursor()
+
+    try:
+        # 1. INSERE O EVENTO PRINCIPAL NA TABELA 'eventos_agenda'
+        query_evento = """
+            INSERT INTO eventos_agenda (titulo, descricao, data_evento, horario_inicio, horario_fim, id_professor, id_disciplina, tipo_evento, recorrencia)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s) RETURNING id;
+        """
+        cursor.execute(query_evento, (
+            titulo, descricao, data_evento, horario_inicio, horario_fim, 
+            id_professor if id_professor else None, 
+            id_disciplina if id_disciplina else None, 
+            tipo_evento, recorrencia
+        ))
+        
+        # Pega o ID do evento que acabou de ser gerado pelo banco
+        res_evento = cursor.fetchone()
+        id_evento_gerado = res_evento['id'] if isinstance(res_evento, dict) else res_evento[0]
+
+        # 2. SE HOUVER ALUNOS VINCULADOS (Aulas individuais, duplas ou trios)
+        # Varre a lista de IDs de alunos e cria uma linha na tabela intermediária para cada um!
+        for al_id in alunos_ids:
+            if al_id: # Garante que o ID é válido
+                cursor.execute(
+                    "INSERT INTO evento_alunos (id_evento, id_aluno) VALUES (%s, %s);",
+                    (id_evento_gerado, int(al_id))
+                )
+
+        conn.commit()
+    except Exception as e:
+        conn.rollback()
+        print(f"Erro ao salvar na agenda avançada: {e}")
+    finally:
+        cursor.close()
+        conn.close()
+
+    # Após salvar tudo com sucesso, redireciona o professor de volta para a tela do calendário
+    return redirect("/agenda-v2")
+
 if __name__ == "__main__":
     porta = int(os.environ.get("PORT", 5000))
     app.run(host="0.0.0.0", port=porta)
