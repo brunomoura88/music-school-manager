@@ -770,7 +770,7 @@ def api_eventos():
     }
 
     for row in eventos_banco:
-        # MAPEAMENTO SEGURO: Não importa se o banco devolve dicionário ou tupla, convertemos para variáveis limpas
+        # MAPEAMENTO TOTALMENTE SEGURO
         if isinstance(row, dict) or hasattr(row, 'get'):
             ev_id = row.get('id')
             tipo = row.get('tipo_evento')
@@ -792,10 +792,29 @@ def api_eventos():
             al_nomes = row[7] if len(row) > 7 else ""
             p_nome = row[8] if len(row) > 8 else ""
 
-        # Conversão de segurança para strings limpas (independente do formato do banco)
-        h_ini_str = h_ini.strftime("%H:%M:%S") if hasattr(h_ini, 'strftime') else str(h_ini)
-        h_fim_str = h_fim.strftime("%H:%M:%S") if hasattr(h_fim, 'strftime') else str(h_fim)
-        dt_iso = dt.isoformat() if hasattr(dt, 'isoformat') else str(dt)
+        # --- BLINDAGEM SUPREMA CONTRA ERRO 500 (CONVERSÃO DE TIME/TIMEDELTA) ---
+        # Se for um objeto timedelta (comum no psycopg), extraímos as horas e minutos matematicamente
+        if hasattr(h_ini, 'total_seconds'):
+            secs = int(h_ini.total_seconds())
+            h_ini_str = f"{secs // 3600:02d}:{(secs % 3600) // 60:02d}:00"
+        elif hasattr(h_ini, 'strftime'):
+            h_ini_str = h_ini.strftime("%H:%M:%S")
+        else:
+            h_ini_str = str(h_ini)[:8] # Pega os primeiros caracteres caso venha texto '14:30:00'
+
+        if hasattr(h_fim, 'total_seconds'):
+            secs = int(h_fim.total_seconds())
+            h_fim_str = f"{secs // 3600:02d}:{(secs % 3600) // 60:02d}:00"
+        elif hasattr(h_fim, 'strftime'):
+            h_fim_str = h_fim.strftime("%H:%M:%S")
+        else:
+            h_fim_str = str(h_fim)[:8]
+
+        # Conversão segura da data
+        if hasattr(dt, 'isoformat'):
+            dt_iso = dt.isoformat()
+        else:
+            dt_iso = str(dt).split(" ")[0] # Remove o timestamp se vier '2026-06-08 00:00:00'
 
         # LÓGICA DA DIARISTA (Recorrência Quinzenal)
         if rec == "Quinzenal_Sim_Nao":
@@ -807,13 +826,33 @@ def api_eventos():
                     if semanas_passadas % 2 == 0:
                         eventos_js.append({
                             "id": f"rec-{ev_id}-{curr_date.isoformat()}",
-                            "title": titulo,
+                            "title": titulo if titulo else "Bloqueio de Horário",
                             "start": f"{curr_date.isoformat()}T{h_ini_str}",
                             "end": f"{curr_date.isoformat()}T{h_fim_str}",
                             "backgroundColor": cores_tipo.get(tipo, "#6c757d"),
                             "borderColor": cores_tipo.get(tipo, "#6c757d"),
                             "allDay": False
                         })
+                curr_date += timedelta(days=1)
+            continue
+
+        # CONFIGURAÇÃO DO FORMATO DO CARD
+        titulo_bloco = titulo
+        if al_nomes:
+            titulo_bloco = f"{al_nomes} ({p_nome if p_nome else 'Professor'})"
+        elif tipo == "Bloqueio":
+            titulo_bloco = titulo if titulo else "Bloqueio de Horário"
+
+        eventos_js.append({
+            "id": str(ev_id),
+            "title": titulo_bloco,
+            "start": f"{dt_iso}T{h_ini_str}",
+            "end": f"{dt_iso}T{h_fim_str}",
+            "backgroundColor": cores_tipo.get(tipo, "#28a745"),
+            "borderColor": cores_tipo.get(tipo, "#28a745"),
+            "textColor": "#ffffff" if tipo != "Recuperacao" else "#000000",
+            "allDay": False
+        })
                 curr_date += timedelta(days=1)
             continue
 
