@@ -836,41 +836,6 @@ def api_eventos():
     conn.close()
     return jsonify(eventos_js)
 
-@app.route("/api/eventos/excluir/<id_evento>", methods=["DELETE", "GET"])
-def api_eventos_excluir(id_evento):
-    if "professor_id" not in session:
-        return jsonify({"erro": "Não autorizado"}), 401
-
-    # Trata se for o bloco virtual quinzenal da diarista
-    if str(id_evento).startswith("rec-"):
-        id_real = id_evento.split("-")[1]
-    else:
-        id_real = id_evento
-
-    conn = obter_conexao()
-    cursor = conn.cursor()
-
-    try:
-        # Executa o delete no banco usando o ID numérico real
-        cursor.execute("DELETE FROM eventos_agenda WHERE id = %s;", (int(id_real),))
-        conn.commit()
-        sucesso = True
-    except Exception as e:
-        conn.rollback()
-        print(f"Erro ao excluir evento da agenda avançada: {e}")
-        sucesso = False
-    finally:
-        cursor.close()
-        conn.close()
-
-    if sucesso:
-        # Se a requisição veio do clique direto (GET), aceita o redirect tradicional de segurança
-        if request.method == "GET":
-            return redirect("/agenda-v2")
-        return jsonify({"sucesso": True, "mensagem": "Removido com sucesso!"}), 200
-    else:
-        return jsonify({"sucesso": False, "mensagem": "Erro interno ao deletar."}), 500
-
 @app.route("/agenda-v2")
 def agenda_v2():
     if "professor_id" not in session:
@@ -1088,6 +1053,36 @@ def api_eventos_salvar():
         cursor.close()
         conn.close()
 
+    return redirect("/agenda-v2")
+
+@app.route("/api/eventos/excluir/<id_evento>")
+def api_eventos_excluir(id_evento):
+    if "professor_id" not in session:
+        return redirect("/")
+
+    # Limpa o ID se ele vier com o prefixo da diarista
+    id_evento_str = str(id_evento)
+    if id_evento_str.startswith("rec-"):
+        # Pega a segunda parte (ex: rec-15-2026-06-01 vira 15)
+        id_real = id_evento_str.split("-")[1]
+    else:
+        id_real = id_evento_str
+
+    conn = obter_conexao()
+    cursor = conn.cursor()
+
+    try:
+        # Forçamos a conversão para inteiro para o banco não se perder
+        cursor.execute("DELETE FROM eventos_agenda WHERE id = %s;", (int(id_real),))
+        conn.commit()
+    except Exception as e:
+        conn.rollback()
+        print(f"Erro crítico na exclusão da agenda: {e}")
+    finally:
+        cursor.close()
+        conn.close()
+
+    # Força a página inteira a recarregar na marra
     return redirect("/agenda-v2")
 
 
