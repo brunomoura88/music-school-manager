@@ -1,13 +1,3 @@
-Bruno, agora sim achei o culpado exato na estrutura do arquivo! 🔍💥
-
-O Render recusou esse seu último deploy por um erro de sintaxe clássico do Python: recuo inválido (IndentationError) misturado com um bloco de código duplicado e desalinhado bem no miolo da rota /api/eventos.
-
-Se você notar no código que mandou, ali por volta do final da lógica da diarista, a variável curr_date += timedelta(days=1) e o bloco de formatação do card de aulas se repetiram duas vezes com espaçamentos aleatórios na lateral. O Python é extremamente rígido com identação, e qualquer espaço torto faz o deploy quebrar na hora de compilar.
-
-🛠️ A Solução Definitiva para o seu app.py
-Substitua o conteúdo inteiro do seu arquivo app.py no GitHub por este código limpo, totalmente alinhado e blindado contra o Erro 500 que estávamos caçando:
-
-Python
 from flask import Flask, render_template, request, redirect, session, url_for, jsonify
 import sqlite3
 from datetime import datetime, timedelta, date
