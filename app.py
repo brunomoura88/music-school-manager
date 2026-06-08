@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, redirect, session, url_for
+from flask import Flask, render_template, request, redirect, session, url_for, jsonify
 import sqlite3
 from datetime import datetime, timedelta, date
 from werkzeug.security import generate_password_hash, check_password_hash
@@ -238,13 +238,11 @@ def dashboard():
         return redirect("/")
     id_logado, nome_logado = session["professor_id"], session["professor_nome"]
 
-    # Pega o nome do professor logado na sessão
     nome_professor = session.get("professor_nome", "Professor")
     
     conn = obter_conexao()
     cursor = conn.cursor()
 
-    # --- LISTA DE GESTORES QUE ENXERGAM OS DADOS GERAIS DA ESCOLA ---
     gestores_escola = ["Bruno Moura", "Bruno Mota", "Raphael Russowsky"]
 
     if nome_logado in gestores_escola:
@@ -298,7 +296,6 @@ def dashboard():
     ]
     competencia_atual = f"{meses_ano[datetime.now().month - 1]}/{datetime.now().year}"
 
-    # REMOVIDO A DUPLICIDADE AQUI: Enviamos apenas o 'nome_professor' esperado pelo HTML
     return render_template(
         "dashboard.html",
         total_alunos=total_alunos,
@@ -349,7 +346,7 @@ def alunos():
         conn.close()
         return redirect("/alunos")
 
-    if nome_logado == "Bruno Moura":
+    if nome_logado in ["Bruno Moura", "Bruno Mota", "Raphael Russowsky"]:
         cursor.execute(
             "SELECT al.id, al.nome as aluno_nome, al.vencimento_mensalidade, al.valor_mensalidade, p.nome as prof_nome, d.nome as disc_nome FROM alunos al LEFT JOIN disciplinas d ON al.id_disciplina = d.id LEFT JOIN professores p ON al.id_professor = p.id ORDER BY al.id DESC;"
         )
@@ -404,13 +401,13 @@ def alunos():
         professores=professores_lista,
     )
 
+
 @app.route("/aluno/contrato/<id>")
 def contrato(id):
     if "professor_id" not in session: return redirect("/")
     
     conn = obter_conexao(); cursor = conn.cursor()
     
-    # --- QUERY COMPLETA TRAZENDO OS NOMES DOS PROFESSORES E DISCIPLINAS ---
     cursor.execute("""
         SELECT 
             al.id, 
@@ -429,11 +426,9 @@ def contrato(id):
     
     aluno_dados = cursor.fetchone()
     
-    # Se o banco retornar como dicionário (PostgreSQL)
     if isinstance(aluno_dados, dict):
         aluno = aluno_dados
     elif aluno_dados:
-        # Se retornar como tupla (SQLite local), mapeamos manualmente para o HTML ler as chaves
         aluno = {
             "id": aluno_dados[0],
             "nome": aluno_dados[1],
@@ -449,8 +444,8 @@ def contrato(id):
         return "Aluno não encontrado", 404
 
     cursor.close(); conn.close()
-    
     return render_template("contrato.html", aluno=aluno)
+
 
 @app.route("/excluir_aluno/<int:id>")
 def excluir_aluno(id):
@@ -547,6 +542,8 @@ def editar_aluno(id):
         disciplinas=disciplinas_lista,
         professores=professores_lista,
     )
+
+
 @app.route("/agenda", methods=["GET", "POST"])
 def agenda():
     if "professor_id" not in session: return redirect("/")
@@ -591,15 +588,7 @@ def agenda():
     """, (sala_selecionada, datetime.now().strftime("%Y-%m-%d")))
 
     paleta_cores = [
-        "#D81B60", # Pink/Rose
-        "#1E88E5", # Blue
-        "#00897B", # Teal
-        "#F4511E", # Orange/Deep Orange
-        "#7CB342", # Green/Lime
-        "#8E24AA", # Purple
-        "#FFB300", # Amber
-        "#3949AB", # Indigo
-        "#00ACC1"  # Cyan
+        "#D81B60", "#1E88E5", "#00897B", "#F4511E", "#7CB342", "#8E24AA", "#FFB300", "#3949AB", "#00ACC1"
     ]
 
     mapa_agenda = {}
@@ -619,21 +608,16 @@ def agenda():
 
         if not hora: continue
 
-        # --- O PULO DO GATO PARA HORÁRIOS QUEBRADOS ---
-        # Transformamos a string de hora (ex: "14:15:00" ou "14:30") em objeto de tempo do Python
         try:
             if isinstance(hora, str):
                 partes_hora = hora.split(":")
                 hora_objeto = datetime.strptime(f"{partes_hora[0]}:{partes_hora[1]}", "%H:%M")
             else:
-                # Caso o banco já traga um objeto time do Python
                 hora_objeto = datetime.combine(datetime.today(), hora)
         except Exception:
             continue
 
-        # Capturamos a HORA CHEIA base (ex: se for 14:15 ou 14:30, a hora_base será "14:00")
         hora_base = f"{hora_objeto.hour:02d}:00"
-        # Capturamos o horário real formatado para mostrar no card (ex: "14:15")
         horario_real_formatado = hora_objeto.strftime("%H:%M")
 
         id_prof_seguro = id_prof_agenda if id_prof_agenda is not None else 0
@@ -645,7 +629,6 @@ def agenda():
         classe_visual = "aula-block minha-aula" if eh_minha_aula else "aula-block outra-aula"
         ex_aluno = al_nome if al_nome else "Horário Disponível"
         
-        # Injetamos o HORÁRIO REAL quebrado no texto para aparecer visualmente no card!
         texto_aula = f"<div class='small text-white-50 mb-1 fw-bold'><i class='bi bi-clock me-1'></i>{horario_real_formatado}</div>"
         texto_aula += f"<div class='aluno'>{ex_aluno} ({disc_nome})</div>"
         
@@ -658,13 +641,13 @@ def agenda():
         if eh_minha_aula or nome_professor_logado == "Bruno Moura":
             texto_aula += f"<a href='/agenda/excluir/{id_agenda}?sala_id={sala_selecionada}' class='btn-limpar-premium' onclick='return confirm(\"Limpar este horário?\")'><i class='bi bi-trash3-fill'></i></a>"
 
-        # AGORA SALVAMOS PELA HORA_BASE (assim o HTML encontra o registro na linha daquela hora)
         mapa_agenda[(dia, hora_base)] = {
             "html": f"<div class='{classe_visual}'>{texto_aula}</div>",
             "cor": cor_professor
         }
     cursor.close(); conn.close()
     return render_template("agenda.html", salas=all_salas, professores=all_professores, alunos=all_alunos, mapa_agenda=mapa_agenda, dias_semana=["Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado"], horarios=[f"{h:02d}:00" for h in range(8, 22)], sala_selecionada=sala_selecionada, erro=erro, id_professor_logado=session["professor_id"], nome_professor=nome_professor_logado)
+
 
 @app.route("/agenda/excluir/<int:id_agenda>")
 def excluir_agendamento(id_agenda):
@@ -683,6 +666,7 @@ def excluir_agendamento(id_agenda):
         
     return redirect(f"/agenda?sala_id={sala_id}")
 
+
 @app.route("/financeiro/pagar/<int:id_mensalidade>")
 def pagar_mensalidade(id_mensalidade):
     if "professor_id" not in session:
@@ -696,6 +680,7 @@ def pagar_mensalidade(id_mensalidade):
     conn.commit()
     conn.close()
     return redirect("/financeiro")
+
 
 @app.route("/api/eventos")
 def api_eventos():
@@ -717,7 +702,6 @@ def api_eventos():
     conn = obter_conexao()
     cursor = conn.cursor()
 
-    # Query padronizada explicitando as colunas para evitar desalinhamento de índices
     if nome_logado in gestores_escola:
         query_eventos = """
             SELECT 
@@ -770,346 +754,10 @@ def api_eventos():
     }
 
     for row in eventos_banco:
-        # MAPEAMENTO TOTALMENTE SEGURO
         if isinstance(row, dict) or hasattr(row, 'get'):
             ev_id = row.get('id')
             tipo = row.get('tipo_evento')
             titulo = row.get('titulo')
             dt = row.get('data_evento')
             h_ini = row.get('horario_inicio')
-            h_fim = row.get('horario_fim')
-            rec = row.get('recorrencia')
-            al_nomes = row.get('alunos_nomes')
-            p_nome = row.get('prof_nome')
-        else:
-            ev_id = row[0]
-            tipo = row[1]
-            titulo = row[2]
-            dt = row[3]
-            h_ini = row[4]
-            h_fim = row[5]
-            rec = row[6]
-            al_nomes = row[7] if len(row) > 7 else ""
-            p_nome = row[8] if len(row) > 8 else ""
-
-        # --- BLINDAGEM SUPREMA CONTRA ERRO 500 (CONVERSÃO DE TIME/TIMEDELTA) ---
-        # Se for um objeto timedelta (comum no psycopg), extraímos as horas e minutos matematicamente
-        if hasattr(h_ini, 'total_seconds'):
-            secs = int(h_ini.total_seconds())
-            h_ini_str = f"{secs // 3600:02d}:{(secs % 3600) // 60:02d}:00"
-        elif hasattr(h_ini, 'strftime'):
-            h_ini_str = h_ini.strftime("%H:%M:%S")
-        else:
-            h_ini_str = str(h_ini)[:8] # Pega os primeiros caracteres caso venha texto '14:30:00'
-
-        if hasattr(h_fim, 'total_seconds'):
-            secs = int(h_fim.total_seconds())
-            h_fim_str = f"{secs // 3600:02d}:{(secs % 3600) // 60:02d}:00"
-        elif hasattr(h_fim, 'strftime'):
-            h_fim_str = h_fim.strftime("%H:%M:%S")
-        else:
-            h_fim_str = str(h_fim)[:8]
-
-        # Conversão segura da data
-        if hasattr(dt, 'isoformat'):
-            dt_iso = dt.isoformat()
-        else:
-            dt_iso = str(dt).split(" ")[0] # Remove o timestamp se vier '2026-06-08 00:00:00'
-
-        # LÓGICA DA DIARISTA (Recorrência Quinzenal)
-        if rec == "Quinzenal_Sim_Nao":
-            data_base_diarista = date(2026, 6, 1)
-            curr_date = dt_inicio
-            while curr_date <= dt_fim:
-                if curr_date.weekday() == 0:  # Segunda-feira
-                    semanas_passadas = (curr_date - data_base_diarista).days // 7
-                    if semanas_passadas % 2 == 0:
-                        eventos_js.append({
-                            "id": f"rec-{ev_id}-{curr_date.isoformat()}",
-                            "title": titulo if titulo else "Bloqueio de Horário",
-                            "start": f"{curr_date.isoformat()}T{h_ini_str}",
-                            "end": f"{curr_date.isoformat()}T{h_fim_str}",
-                            "backgroundColor": cores_tipo.get(tipo, "#6c757d"),
-                            "borderColor": cores_tipo.get(tipo, "#6c757d"),
-                            "allDay": False
-                        })
-                curr_date += timedelta(days=1)
-            continue
-
-        # CONFIGURAÇÃO DO FORMATO DO CARD
-        titulo_bloco = titulo
-        if al_nomes:
-            titulo_bloco = f"{al_nomes} ({p_nome if p_nome else 'Professor'})"
-        elif tipo == "Bloqueio":
-            titulo_bloco = titulo if titulo else "Bloqueio de Horário"
-
-        eventos_js.append({
-            "id": str(ev_id),
-            "title": titulo_bloco,
-            "start": f"{dt_iso}T{h_ini_str}",
-            "end": f"{dt_iso}T{h_fim_str}",
-            "backgroundColor": cores_tipo.get(tipo, "#28a745"),
-            "borderColor": cores_tipo.get(tipo, "#28a745"),
-            "textColor": "#ffffff" if tipo != "Recuperacao" else "#000000",
-            "allDay": False
-        })
-                curr_date += timedelta(days=1)
-            continue
-
-        # CONFIGURAÇÃO DO FORMATO DO CARD
-        titulo_bloco = titulo
-        if al_nomes:
-            titulo_bloco = f"{al_nomes} ({p_nome if p_nome else 'Professor'})"
-        elif tipo == "Bloqueio":
-            titulo_bloco = titulo if titulo else "Bloqueio de Horário"
-
-        eventos_js.append({
-            "id": str(ev_id),
-            "title": titulo_bloco,
-            "start": f"{dt_iso}T{h_ini_str}",
-            "end": f"{dt_iso}T{h_fim_str}",
-            "backgroundColor": cores_tipo.get(tipo, "#28a745"),
-            "borderColor": cores_tipo.get(tipo, "#28a745"),
-            "textColor": "#ffffff" if tipo != "Recuperacao" else "#000000",
-            "allDay": False
-        })
-
-    cursor.close()
-    conn.close()
-    return jsonify(eventos_js)
-
-@app.route("/agenda-v2")
-def agenda_v2():
-    if "professor_id" not in session:
-        return redirect("/")
-        
-    conn = obter_conexao()
-    cursor = conn.cursor()
-
-    # Puxa os professores para carregar no Select do formulário
-    cursor.execute("SELECT id, nome FROM professores ORDER BY nome;")
-    professores_banco = cursor.fetchall()
-    professores = [{"id": r[0], "nome": r[1]} if not isinstance(r, dict) else r for r in professores_banco]
-
-    # Puxa os alunos ativos para podermos alocar nas duplas/trios/individuais
-    cursor.execute("SELECT id, nome FROM alunos ORDER BY nome;")
-    alunos_banco = cursor.fetchall()
-    alunos = [{"id": r[0], "nome": r[1]} if not isinstance(r, dict) else r for r in alunos_banco]
-
-    # Puxa as disciplinas
-    cursor.execute("SELECT id, nome FROM disciplinas ORDER BY nome;")
-    disciplinas_banco = cursor.fetchall()
-    disciplinas = [{"id": r[0], "nome": r[1]} if not isinstance(r, dict) else r for r in disciplinas_banco]
-
-    cursor.close()
-    conn.close()
-
-    return render_template(
-        "agenda_v2.html", 
-        professores=professores, 
-        alunos=alunos, 
-        disciplinas=disciplinas,
-        nome_professor=session.get("professor_nome", "Professor")
-    )
-
-@app.route("/financeiro", methods=["GET", "POST"])
-def financeiro():
-    if "professor_id" not in session: return redirect("/")
-    nome_logado = session["professor_nome"]
-    competencia_atual = request.form.get("competencia_filtro") if request.method == "POST" and request.form.get("competencia_filtro") else datetime.now().strftime("%m/%Y")
-
-    conn = obter_conexao(); cursor = conn.cursor()
-    is_postgres = hasattr(conn, "encoding") or conn.__class__.__name__ == "Connection"
-    id_auto = "SERIAL PRIMARY KEY" if is_postgres else "INTEGER PRIMARY KEY AUTOINCREMENT"
-    text_type = "VARCHAR(255)" if is_postgres else "TEXT"
-    real_type = "NUMERIC(10,2)" if is_postgres else "REAL"
-
-    try:
-        cursor.execute(f"CREATE TABLE IF NOT EXISTS mensalidades (id {id_auto}, id_aluno INTEGER NOT NULL, competencia {text_type} NOT NULL, valor_devido {real_type}, status {text_type} DEFAULT 'Pendente', data_pagamento {text_type});")
-        conn.commit()
-    except Exception: pass
-
-    if competencia_atual == datetime.now().strftime("%m/%Y"):
-        cursor.execute("SELECT id, valor_mensalidade FROM alunos;")
-        for aluno in cursor.fetchall():
-            id_aluno, valor = (aluno["id"], aluno["valor_mensalidade"]) if isinstance(aluno, dict) else (aluno[0], aluno[1])
-            if valor is None: valor = 0.0
-            cursor.execute("SELECT id FROM mensalidades WHERE id_aluno = %s AND competencia = %s;", (id_aluno, competencia_atual))
-            if not cursor.fetchone():
-                cursor.execute("INSERT INTO mensalidades (id_aluno, competencia, valor_devido, status) VALUES (%s, %s, %s, 'Pendente');", (id_aluno, competencia_atual, valor))
-        conn.commit()
-
-    cursor.execute("SELECT DISTINCT competencia FROM mensalidades ORDER BY competencia DESC;")
-    meses_disponiveis = [r["competencia"] if isinstance(r, dict) else r[0] for r in cursor.fetchall()]
-    if datetime.now().strftime("%m/%Y") not in meses_disponiveis: meses_disponiveis.insert(0, datetime.now().strftime("%m/%Y"))
-
-    # --- LISTA UNIFICADA DE GESTORES ---
-    gestores_escola = ["Bruno Moura", "Bruno Mota", "Raphael Russowsky"]
-
-    # Buscamos os professores para alimentar o filtro do HTML
-    cursor.execute("SELECT nome FROM professores ORDER BY nome;")
-    todos_professores = [p["nome"] if isinstance(p, dict) else p[0] for p in cursor.fetchall()]
-
-    if nome_logado in gestores_escola:
-        # Adicionamos o nome do professor no SELECT (p.nome as prof_responsavel) para o JavaScript usar no filtro
-        cursor.execute("""
-            SELECT m.id, al.nome as aluno_nome, m.competencia, m.valor_devido, m.status, m.data_pagamento, d.nome as disciplina_nome, al.vencimento_mensalidade, p.nome as prof_responsavel
-            FROM mensalidades m 
-            JOIN alunos al ON m.id_aluno = al.id 
-            LEFT JOIN disciplinas d ON al.id_disciplina = d.id 
-            LEFT JOIN professores p ON al.id_professor = p.id
-            WHERE m.competencia = %s;
-        """, (competencia_atual,))
-    else:
-        cursor.execute("""
-            SELECT m.id, al.nome as aluno_nome, m.competencia, m.valor_devido, m.status, m.data_pagamento, d.nome as disciplina_nome, al.vencimento_mensalidade, p.nome as prof_responsavel
-            FROM mensalidades m 
-            JOIN alunos al ON m.id_aluno = al.id 
-            LEFT JOIN disciplinas d ON al.id_disciplina = d.id 
-            LEFT JOIN professores p ON al.id_professor = p.id
-            WHERE m.competencia = %s AND al.id_professor = %s;
-        """, (competencia_atual, session["professor_id"]))
-
-    dia_hoje = datetime.now().day
-
-    total_recebido = 0.0
-    total_no_prazo = 0.0
-    total_atrasado = 0.0
-
-    lista_mensalidades = []
-    for row in cursor.fetchall():
-        if isinstance(row, dict):
-            v_devido = row.get("valor_devido") if row.get("valor_devido") is not None else 0.0
-            status_banco = row.get("status")
-            venc_dia = row.get("vencimento_mensalidade")
-            item = {
-                "id": row.get("id"), 
-                "aluno_nome": row.get("aluno_nome"), 
-                "mes_competencia": row.get("competencia"), 
-                "valor": v_devido, 
-                "data_pagamento": row.get("data_pagamento"), 
-                "disciplina_nome": row.get("disciplina_nome"), 
-                "vencimento": venc_dia if venc_dia else "-",
-                "professor_nome": row.get("prof_responsavel") if row.get("prof_responsavel") else "Não Atribuído"
-            }
-        else:
-            v_devido = row[3] if row[3] is not None else 0.0
-            status_banco = row[4]
-            venc_dia = row[7]
-            item = {
-                "id": row[0], 
-                "aluno_nome": row[1], 
-                "mes_competencia": row[2], 
-                "valor": v_devido, 
-                "data_pagamento": row[5], 
-                "disciplina_nome": row[6], 
-                "vencimento": venc_dia if venc_dia else "-",
-                "professor_nome": row[8] if row[8] else "Não Atribuído"
-            }
-
-        if status_banco == "Pago":
-            item["status_visual"] = "Pago"
-            total_recebido += float(v_devido)
-        else:
-            try:
-                dia_venc_int = int(str(venc_dia).strip())
-                if dia_hoje < dia_venc_int:
-                    item["status_visual"] = "No Prazo"
-                    total_no_prazo += float(v_devido)
-                elif dia_hoje == dia_venc_int:
-                    item["status_visual"] = "Vence Hoje"
-                    total_no_prazo += float(v_devido)
-                else:
-                    item["status_visual"] = "Atrasado"
-                    total_atrasado += float(v_devido)
-            except Exception:
-                item["status_visual"] = "Pendente"
-                total_atrasado += float(v_devido)
-
-        lista_mensalidades.append(item)
-
-    cursor.close(); conn.close()
-
-    pode_ver_relatorio = nome_logado in gestores_escola
-
-    return render_template(
-        "financeiro.html", 
-        mensalidades=lista_mensalidades, 
-        competencia=competencia_atual, 
-        meses_opcoes=meses_disponiveis,
-        total_recebido=total_recebido,
-        total_no_prazo=total_no_prazo,
-        total_atrasado=total_atrasado,
-        pode_ver_relatorio=pode_ver_relatorio,
-        professores_lista=todos_professores,
-        usuario_logado=nome_logado
-    )
-
-@app.route("/api/eventos/salvar", methods=["POST"])
-def api_eventos_salvar():
-    if "professor_id" not in session:
-        return redirect("/")
-
-    # Coleta os dados vindos do formulário do Modal do FullCalendar
-    tipo_evento = request.form.get("tipo_evento")
-    titulo = request.form.get("titulo")
-    descricao = request.form.get("descricao", "")
-    data_evento = request.form.get("data_evento")
-    horario_inicio = request.form.get("horario_inicio")
-    horario_fim = request.form.get("horario_fim")
-    id_professor = request.form.get("id_professor")
-    id_disciplina = request.form.get("id_disciplina")
-    recorrencia = request.form.get("recorrencia", "Nenhuma")
-
-    # Tratamento para capturar múltiplos IDs de alunos selecionados (Duplas/Trios!)
-    alunos_ids = request.form.getlist("alunos_ids")
-
-    # Se for bloqueio ou feriado, limpa os campos de relacionamento que não existem
-    if tipo_evento in ["Bloqueio", "Feriado"]:
-        id_professor = None
-        id_disciplina = None
-        alunos_ids = []
-
-    conn = obter_conexao()
-    cursor = conn.cursor()
-
-    try:
-        # 1. INSERE O EVENTO PRINCIPAL NA TABELA 'eventos_agenda'
-        query_evento = """
-            INSERT INTO eventos_agenda (titulo, descricao, data_evento, horario_inicio, horario_fim, id_professor, id_disciplina, tipo_evento, recorrencia)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s) RETURNING id;
-        """
-        cursor.execute(query_evento, (
-            titulo, descricao, data_evento, horario_inicio, horario_fim, 
-            id_professor if id_professor else None, 
-            id_disciplina if id_disciplina else None, 
-            tipo_evento, recorrencia
-        ))
-        
-        # Pega o ID do evento que acabou de ser gerado pelo banco
-        res_evento = cursor.fetchone()
-        id_evento_gerado = res_evento['id'] if isinstance(res_evento, dict) else res_evento[0]
-
-        # 2. SE HOUVER ALUNOS VINCULADOS (Aulas individuais, duplas ou trios)
-        # Varre a lista de IDs de alunos e cria uma linha na tabela intermediária para cada um!
-        for al_id in alunos_ids:
-            if al_id: # Garante que o ID é válido
-                cursor.execute(
-                    "INSERT INTO evento_alunos (id_evento, id_aluno) VALUES (%s, %s);",
-                    (id_evento_gerado, int(al_id))
-                )
-
-        conn.commit()
-    except Exception as e:
-        conn.rollback()
-        print(f"Erro ao salvar na agenda avançada: {e}")
-    finally:
-        cursor.close()
-        conn.close()
-
-    # Após salvar tudo com sucesso, redireciona o professor de volta para a tela do calendário
-    return redirect("/agenda-v2")
-
-if __name__ == "__main__":
-    porta = int(os.environ.get("PORT", 5000))
-    app.run(host="0.0.0.0", port=porta)
+            h_fim = row.
