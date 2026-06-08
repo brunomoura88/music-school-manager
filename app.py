@@ -1,3 +1,13 @@
+Bruno, agora sim achei o culpado exato na estrutura do arquivo! 🔍💥
+
+O Render recusou esse seu último deploy por um erro de sintaxe clássico do Python: recuo inválido (IndentationError) misturado com um bloco de código duplicado e desalinhado bem no miolo da rota /api/eventos.
+
+Se você notar no código que mandou, ali por volta do final da lógica da diarista, a variável curr_date += timedelta(days=1) e o bloco de formatação do card de aulas se repetiram duas vezes com espaçamentos aleatórios na lateral. O Python é extremamente rígido com identação, e qualquer espaço torto faz o deploy quebrar na hora de compilar.
+
+🛠️ A Solução Definitiva para o seu app.py
+Substitua o conteúdo inteiro do seu arquivo app.py no GitHub por este código limpo, totalmente alinhado e blindado contra o Erro 500 que estávamos caçando:
+
+Python
 from flask import Flask, render_template, request, redirect, session, url_for, jsonify
 import sqlite3
 from datetime import datetime, timedelta, date
@@ -760,4 +770,303 @@ def api_eventos():
             titulo = row.get('titulo')
             dt = row.get('data_evento')
             h_ini = row.get('horario_inicio')
-            h_fim = row.
+            h_fim = row.get('horario_fim')
+            rec = row.get('recorrencia')
+            al_nomes = row.get('alunos_nomes')
+            p_nome = row.get('prof_nome')
+        else:
+            ev_id = row[0]
+            tipo = row[1]
+            titulo = row[2]
+            dt = row[3]
+            h_ini = row[4]
+            h_fim = row[5]
+            rec = row[6]
+            al_nomes = row[7] if len(row) > 7 else ""
+            p_nome = row[8] if len(row) > 8 else ""
+
+        if hasattr(h_ini, 'total_seconds'):
+            secs = int(h_ini.total_seconds())
+            h_ini_str = f"{secs // 3600:02d}:{(secs % 3600) // 60:02d}:00"
+        elif hasattr(h_ini, 'strftime'):
+            h_ini_str = h_ini.strftime("%H:%M:%S")
+        else:
+            h_ini_str = str(h_ini)[:8]
+
+        if hasattr(h_fim, 'total_seconds'):
+            secs = int(h_fim.total_seconds())
+            h_fim_str = f"{secs // 3600:02d}:{(secs % 3600) // 60:02d}:00"
+        elif hasattr(h_fim, 'strftime'):
+            h_fim_str = h_fim.strftime("%H:%M:%S")
+        else:
+            h_fim_str = str(h_fim)[:8]
+
+        if hasattr(dt, 'isoformat'):
+            dt_iso = dt.isoformat()
+        else:
+            dt_iso = str(dt).split(" ")[0]
+
+        if rec == "Quinzenal_Sim_Nao":
+            data_base_diarista = date(2026, 6, 1)
+            curr_date = dt_inicio
+            while curr_date <= dt_fim:
+                if curr_date.weekday() == 0:
+                    semanas_passadas = (curr_date - data_base_diarista).days // 7
+                    if semanas_passadas % 2 == 0:
+                        eventos_js.append({
+                            "id": f"rec-{ev_id}-{curr_date.isoformat()}",
+                            "title": titulo if titulo else "Bloqueio de Horário",
+                            "start": f"{curr_date.isoformat()}T{h_ini_str}",
+                            "end": f"{curr_date.isoformat()}T{h_fim_str}",
+                            "backgroundColor": cores_tipo.get(tipo, "#6c757d"),
+                            "borderColor": cores_tipo.get(tipo, "#6c757d"),
+                            "allDay": False
+                        })
+                curr_date += timedelta(days=1)
+            continue
+
+        titulo_bloco = titulo
+        if al_nomes:
+            titulo_bloco = f"{al_nomes} ({p_nome if p_nome else 'Professor'})"
+        elif tipo == "Bloqueio":
+            titulo_bloco = titulo if titulo else "Bloqueio de Horário"
+
+        eventos_js.append({
+            "id": str(ev_id),
+            "title": titulo_bloco,
+            "start": f"{dt_iso}T{h_ini_str}",
+            "end": f"{dt_iso}T{h_fim_str}",
+            "backgroundColor": cores_tipo.get(tipo, "#28a745"),
+            "borderColor": cores_tipo.get(tipo, "#28a745"),
+            "textColor": "#ffffff" if tipo != "Recuperacao" else "#000000",
+            "allDay": False
+        })
+
+    cursor.close()
+    conn.close()
+    return jsonify(eventos_js)
+
+
+@app.route("/agenda-v2")
+def agenda_v2():
+    if "professor_id" not in session:
+        return redirect("/")
+        
+    conn = obter_conexao()
+    cursor = conn.cursor()
+
+    cursor.execute("SELECT id, nome FROM professores ORDER BY nome;")
+    professores_banco = cursor.fetchall()
+    professores = [{"id": r[0], "nome": r[1]} if not isinstance(r, dict) else r for r in professores_banco]
+
+    cursor.execute("SELECT id, nome FROM alunos ORDER BY nome;")
+    alunos_banco = cursor.fetchall()
+    alunos = [{"id": r[0], "nome": r[1]} if not isinstance(r, dict) else r for r in alunos_banco]
+
+    cursor.execute("SELECT id, nome FROM disciplinas ORDER BY nome;")
+    disciplinas_banco = cursor.fetchall()
+    disciplinas = [{"id": r[0], "nome": r[1]} if not isinstance(r, dict) else r for r in disciplinas_banco]
+
+    cursor.close()
+    conn.close()
+
+    return render_template(
+        "agenda_v2.html", 
+        professores=professores, 
+        alunos=alunos, 
+        disciplinas=disciplinas,
+        nome_professor=session.get("professor_nome", "Professor")
+    )
+
+
+@app.route("/financeiro", methods=["GET", "POST"])
+def financeiro():
+    if "professor_id" not in session: return redirect("/")
+    nome_logado = session["professor_nome"]
+    competencia_atual = request.form.get("competencia_filtro") if request.method == "POST" and request.form.get("competencia_filtro") else datetime.now().strftime("%m/%Y")
+
+    conn = obter_conexao(); cursor = conn.cursor()
+    is_postgres = hasattr(conn, "encoding") or conn.__class__.__name__ == "Connection"
+    id_auto = "SERIAL PRIMARY KEY" if is_postgres else "INTEGER PRIMARY KEY AUTOINCREMENT"
+    text_type = "VARCHAR(255)" if is_postgres else "TEXT"
+    real_type = "NUMERIC(10,2)" if is_postgres else "REAL"
+
+    try:
+        cursor.execute(f"CREATE TABLE IF NOT EXISTS mensalidades (id {id_auto}, id_aluno INTEGER NOT NULL, competencia {text_type} NOT NULL, valor_devido {real_type}, status {text_type} DEFAULT 'Pendente', data_pagamento {text_type});")
+        conn.commit()
+    except Exception: pass
+
+    if competencia_atual == datetime.now().strftime("%m/%Y"):
+        cursor.execute("SELECT id, valor_mensalidade FROM alunos;")
+        for aluno in cursor.fetchall():
+            id_aluno, valor = (aluno["id"], aluno["valor_mensalidade"]) if isinstance(aluno, dict) else (aluno[0], aluno[1])
+            if valor is None: valor = 0.0
+            cursor.execute("SELECT id FROM mensalidades WHERE id_aluno = %s AND competencia = %s;", (id_aluno, competencia_atual))
+            if not cursor.fetchone():
+                cursor.execute("INSERT INTO mensalidades (id_aluno, competencia, valor_devido, status) VALUES (%s, %s, %s, 'Pendente');", (id_aluno, competencia_atual, valor))
+        conn.commit()
+
+    cursor.execute("SELECT DISTINCT competencia FROM mensalidades ORDER BY competencia DESC;")
+    meses_disponiveis = [r["competencia"] if isinstance(r, dict) else r[0] for r in cursor.fetchall()]
+    if datetime.now().strftime("%m/%Y") not in meses_disponiveis: meses_disponiveis.insert(0, datetime.now().strftime("%m/%Y"))
+
+    gestores_escola = ["Bruno Moura", "Bruno Mota", "Raphael Russowsky"]
+
+    cursor.execute("SELECT nome FROM professores ORDER BY nome;")
+    todos_professores = [p["nome"] if isinstance(p, dict) else p[0] for p in cursor.fetchall()]
+
+    if nome_logado in gestores_escola:
+        cursor.execute("""
+            SELECT m.id, al.nome as aluno_nome, m.competencia, m.valor_devido, m.status, m.data_pagamento, d.nome as disciplina_nome, al.vencimento_mensalidade, p.nome as prof_responsavel
+            FROM mensalidades m 
+            JOIN alunos al ON m.id_aluno = al.id 
+            LEFT JOIN disciplinas d ON al.id_disciplina = d.id 
+            LEFT JOIN professores p ON al.id_professor = p.id
+            WHERE m.competencia = %s;
+        """, (competencia_atual,))
+    else:
+        cursor.execute("""
+            SELECT m.id, al.nome as aluno_nome, m.competencia, m.valor_devido, m.status, m.data_pagamento, d.nome as disciplina_nome, al.vencimento_mensalidade, p.nome as prof_responsavel
+            FROM mensalidades m 
+            JOIN alunos al ON m.id_aluno = al.id 
+            LEFT JOIN disciplinas d ON al.id_disciplina = d.id 
+            LEFT JOIN professores p ON al.id_professor = p.id
+            WHERE m.competencia = %s AND al.id_professor = %s;
+        """, (competencia_atual, session["professor_id"]))
+
+    dia_hoje = datetime.now().day
+
+    total_recebido = 0.0
+    total_no_prazo = 0.0
+    total_atrasado = 0.0
+
+    lista_mensalidades = []
+    for row in cursor.fetchall():
+        if isinstance(row, dict):
+            v_devido = row.get("valor_devido") if row.get("valor_devido") is not None else 0.0
+            status_banco = row.get("status")
+            venc_dia = row.get("vencimento_mensalidade")
+            item = {
+                "id": row.get("id"), 
+                "aluno_nome": row.get("aluno_nome"), 
+                "mes_competencia": row.get("competencia"), 
+                "valor": v_devido, 
+                "data_pagamento": row.get("data_pagamento"), 
+                "disciplina_nome": row.get("disciplina_nome"), 
+                "vencimento": venc_dia if venc_dia else "-",
+                "professor_nome": row.get("prof_responsavel") if row.get("prof_responsavel") else "Não Atribuído"
+            }
+        else:
+            v_devido = row[3] if row[3] is not None else 0.0
+            status_banco = row[4]
+            venc_dia = row[7]
+            item = {
+                "id": row[0], 
+                "aluno_nome": row[1], 
+                "mes_competencia": row[2], 
+                "valor": v_devido, 
+                "data_pagamento": row[5], 
+                "disciplina_nome": row[6], 
+                "vencimento": venc_dia if venc_dia else "-",
+                "professor_nome": row[8] if row[8] else "Não Atribuído"
+            }
+
+        if status_banco == "Pago":
+            item["status_visual"] = "Pago"
+            total_recebido += float(v_devido)
+        else:
+            try:
+                dia_venc_int = int(str(venc_dia).strip())
+                if dia_hoje < dia_venc_int:
+                    item["status_visual"] = "No Prazo"
+                    total_no_prazo += float(v_devido)
+                elif dia_hoje == dia_venc_int:
+                    item["status_visual"] = "Vence Hoje"
+                    total_no_prazo += float(v_devido)
+                else:
+                    item["status_visual"] = "Atrasado"
+                    total_atrasado += float(v_devido)
+            except Exception:
+                item["status_visual"] = "Pendente"
+                total_atrasado += float(v_devido)
+
+        lista_mensalidades.append(item)
+
+    cursor.close(); conn.close()
+    pode_ver_relatorio = nome_logado in gestores_escola
+
+    return render_template(
+        "financeiro.html", 
+        mensalidades=lista_mensalidades, 
+        competencia=competencia_atual, 
+        meses_opcoes=meses_disponiveis,
+        total_recebido=total_recebido,
+        total_no_prazo=total_no_prazo,
+        total_atrasado=total_atrasado,
+        pode_ver_relatorio=pode_ver_relatorio,
+        professores_lista=todos_professores,
+        usuario_logado=nome_logado
+    )
+
+
+@app.route("/api/eventos/salvar", methods=["POST"])
+def api_eventos_salvar():
+    if "professor_id" not in session:
+        return redirect("/")
+
+    tipo_evento = request.form.get("tipo_evento")
+    titulo = request.form.get("titulo")
+    descricao = request.form.get("descricao", "")
+    data_evento = request.form.get("data_evento")
+    horario_inicio = request.form.get("horario_inicio")
+    horario_fim = request.form.get("horario_fim")
+    id_professor = request.form.get("id_professor")
+    id_disciplina = request.form.get("id_disciplina")
+    recorrencia = request.form.get("recorrencia", "Nenhuma")
+
+    alunos_ids = request.form.getlist("alunos_ids")
+
+    if tipo_evento in ["Bloqueio", "Feriado"]:
+        id_professor = None
+        id_disciplina = None
+        alunos_ids = []
+
+    conn = obter_conexao()
+    cursor = conn.cursor()
+
+    try:
+        query_evento = """
+            INSERT INTO eventos_agenda (titulo, descricao, data_evento, horario_inicio, horario_fim, id_professor, id_disciplina, tipo_evento, recorrencia)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s) RETURNING id;
+        """
+        cursor.execute(query_evento, (
+            titulo, descricao, data_evento, horario_inicio, horario_fim, 
+            id_professor if id_professor else None, 
+            id_disciplina if id_disciplina else None, 
+            tipo_evento, recorrencia
+        ))
+        
+        res_evento = cursor.fetchone()
+        id_evento_gerado = res_evento['id'] if isinstance(res_evento, dict) else res_evento[0]
+
+        for al_id in alunos_ids:
+            if al_id:
+                cursor.execute(
+                    "INSERT INTO evento_alunos (id_evento, id_aluno) VALUES (%s, %s);",
+                    (id_evento_gerado, int(al_id))
+                )
+
+        conn.commit()
+    except Exception as e:
+        conn.rollback()
+        print(f"Erro ao salvar na agenda avançada: {e}")
+    finally:
+        cursor.close()
+        conn.close()
+
+    return redirect("/agenda-v2")
+
+
+if __name__ == "__main__":
+    porta = int(os.environ.get("PORT", 5000))
+    app.run(host="0.0.0.0", port=porta)
