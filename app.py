@@ -697,6 +697,124 @@ def pagar_mensalidade(id_mensalidade):
     conn.close()
     return redirect("/financeiro")
     
+@app.route("/api/eventos")
+def api_eventos():
+    if "professor_id" not in session:
+        return jsonify([]), 401
+        
+    nome_logado = session["professor_nome"]
+    gestores_escola = ["Bruno Moura", "Bruno Mota", "Raphael Russowsky"]
+
+    # O FullCalendar envia automaticamente os parâmetros ?start=... e &end=... conforme você navega pelos meses
+    data_inicio_str = request.args.get("start")
+    data_fim_str = request.args.get("end")
+
+    if not data_inicio_str or not data_fim_str:
+        return jsonify([]), 400
+
+    # Convertendo os textos recebidos em objetos de data do Python
+    dt_inicio = datetime.fromisoformat(data_inicio_str.split("T")[0]).date()
+    dt_fim = datetime.fromisoformat(data_fim_str.split("T")[0]).date()
+
+    conn = obter_conexao()
+    cursor = conn.cursor()
+
+    # 1. BUSCAR EVENTOS ÚNICOS NO BANCO DE DADOS DENTRO DAQUELE MÊS
+    # Fazemos um JOIN para agrupar e trazer os nomes dos alunos envolvidos na aula (Duplas/Trios!)
+    if nome_logado in gestores_escola:
+        query_eventos = """
+            SELECT ev.*, string_agg(al.nome, ' & ') AS alunos_nomes, p.nome AS prof_nome
+            FROM eventos_agenda ev
+            LEFT JOIN evento_alunos ea ON ev.id = ea.id_evento
+            LEFT JOIN alunos al ON ea.id_aluno = al.id
+            LEFT JOIN professores p ON ev.id = p.id
+            WHERE ev.data_evento BETWEEN %s AND %s
+            GROUP BY ev.id, p.nome;
+        """
+        cursor.execute(query_eventos, (dt_inicio, dt_fim))
+    else:
+        query_eventos = """
+            SELECT ev.*, string_agg(al.nome, ' & ') AS alunos_nomes, p.nome AS prof_nome
+            FROM eventos_agenda ev
+            LEFT JOIN evento_alunos ea ON ev.id = ea.id_evento
+            LEFT JOIN alunos al ON ea.id_aluno = al.id
+            LEFT JOIN professores p ON ev.id = p.id
+            WHERE (ev.data_evento BETWEEN %s AND %s) AND (ev.id_professor = %s OR ev.tipo_evento = 'Bloqueio')
+            GROUP BY ev.id, p.nome;
+        """
+        cursor.execute(query_eventos, (dt_inicio, dt_fim, session["professor_id"]))
+
+    eventos_banco = cursor.fetchall()
+
+    eventos_js = []
+    
+    # Paleta de cores premium para os blocos no calendário do front
+    cores_tipo = {
+        "Aula": "#28a745",        # Verde
+        "Recuperacao": "#ffc107",  # Amarelo/Laranja
+        "Bloqueio": "#6c757d",     # Cinza Escuro (Diarista/Recessos)
+        "Feriado": "#dc3545"       # Vermelho
+    }
+
+    for row in eventos_banco:
+        # Tratando se o banco retornar como dicionário ou tupla
+        if isinstance(row, dict):
+            ev_id, tipo, titulo, dt, h_ini, h_fim, rec, al_nomes, p_nome = row['id'], row['tipo_evento'], row['titulo'], row['data_evento'], row['horario_inicio'], row['horario_fim'], row['recorrencia'], row['alunos_nomes'], row['prof_nome']
+        else:
+            ev_id, titulo, _, dt, h_ini, h_fim, _, _, tipo, rec = row[:10]
+            al_nomes = row[10] if len(row) > 10 else ""
+            p_nome = row[11] if len(row) > 11 else ""
+
+        # LÓGICA DA DIARISTA (Recorrência Quinzenal: Uma semana Sim, outra Não)
+        if rec == "Quinzenal_Sim_Nao":
+            # Data de início do contrato/rotina da diarista (ex: o primeiro dia que ela limpou na segunda)
+            # Vamos assumir que a contagem começou na primeira segunda de Junho de 2026 (01/06/2026)
+            data_base_diarista = date(2026, 6, 1)
+            
+            # Varremos dia a dia do período visível na tela para achar as segundas-feiras corretas
+            curr_date = dt_inicio
+            while curr_date <= dt_fim:
+                # 0 = Segunda-feira no Python weekday()
+                if curr_date.weekday() == 0:
+                    # Calcula quantas semanas se passaram desde a data base
+                    semanas_passadas = (curr_date - data_base_diarista).days // 7
+                    
+                    # Se o número de semanas for PAR, ela trabalha. Se for ÍMPAR, não. (Gera o efeito "semana sim, semana não")
+                    if semanas_passadas % 2 == 0:
+                        eventos_js.append({
+                            "id": f"rec-{ev_id}-{curr_date.isoformat()}",
+                            "title": titulo,
+                            "start": f"{curr_date.isoformat()}T{h_ini}",
+                            "end": f"{curr_date.isoformat()}T{h_fim}",
+                            "backgroundColor": cores_tipo.get(tipo, "#6c757d"),
+                            "borderColor": cores_tipo.get(tipo, "#6c757d"),
+                            "allDay": False
+                        })
+                curr_date += timedelta(days=1)
+            continue # Pula para o próximo evento porque este já foi tratado dinamicamente no loop acima
+
+        # FORMATAÇÃO DOS EVENTOS NORMAIS (Aulas individuais, duplas, feriados)
+        titulo_bloco = titulo
+        if al_nomes:
+            titulo_bloco = f"{al_nomes} ({p_nome if p_nome else 'Professor'})"
+
+        eventos_js.append({
+            "id": str(ev_id),
+            "title": titulo_bloco,
+            "start": f"{dt.isoformat()}T{h_ini}",
+            "end": f"{dt.isoformat()}T{h_fim}",
+            "backgroundColor": cores_tipo.get(tipo, "#28a745"),
+            "borderColor": cores_tipo.get(tipo, "#28a745"),
+            "textColor": "#ffffff" if tipo != "Recuperacao" else "#000000",
+            "allDay": False
+        })
+
+    cursor.close()
+    conn.close()
+    
+    # Retorna o JSON puro mastigado para o FullCalendar desenhar na tela de forma instantânea
+    return jsonify(eventos_js)
+
 @app.route("/financeiro", methods=["GET", "POST"])
 def financeiro():
     if "professor_id" not in session: return redirect("/")
