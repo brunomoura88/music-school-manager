@@ -681,7 +681,6 @@ def pagar_mensalidade(id_mensalidade):
     conn.close()
     return redirect("/financeiro")
 
-
 @app.route("/api/eventos")
 def api_eventos():
     if "professor_id" not in session:
@@ -766,7 +765,6 @@ def api_eventos():
             al_nomes = row[7] if len(row) > 7 else ""
             p_nome = row[8] if len(row) > 8 else ""
 
-        # Padronização estrita de strings de tempo para o FullCalendar aceitar nas visões semana/dia
         h_ini_str = h_ini.strftime("%H:%M:%S") if hasattr(h_ini, 'strftime') else str(h_ini)[:8]
         h_fim_str = h_fim.strftime("%H:%M:%S") if hasattr(h_fim, 'strftime') else str(h_fim)[:8]
         if hasattr(dt, 'isoformat'):
@@ -774,7 +772,6 @@ def api_eventos():
         else:
             dt_original = datetime.strptime(str(dt).split(" ")[0], "%Y-%m-%d").date()
 
-        # Monta o título descritivo do bloco
         titulo_bloco = titulo
         if al_nomes:
             titulo_bloco = f"{al_nomes} ({p_nome if p_nome else 'Professor'})"
@@ -784,7 +781,7 @@ def api_eventos():
         # 🔄 LÓGICA 1: RECORRÊNCIA SEMANAL (Aulas Fixas da Escola)
         if rec == "Semanal":
             curr_date = dt_inicio
-            dia_da_semana_alvo = dt_original.weekday() # Descobre se a aula original é uma segunda, terça...
+            dia_da_semana_alvo = dt_original.weekday()
             
             while curr_date <= dt_fim:
                 if curr_date.weekday() == dia_da_semana_alvo:
@@ -801,13 +798,15 @@ def api_eventos():
                 curr_date += timedelta(days=1)
             continue
 
-        # 🔄 LÓGICA 2: RECORRÊNCIA QUINZENAL (Diarista - Segunda sim, segunda não)
+        # 🔄 LÓGICA 2: RECORRÊNCIA QUINZENAL CORRIGIDA (Diarista - Segunda sim, segunda não)
         if rec == "Quinzenal_Sim_Nao":
-            data_base_diarista = date(2026, 6, 1) # Primeira segunda de Junho de 2026
             curr_date = dt_inicio
+            data_base_diarista = dt_original 
+            
             while curr_date <= dt_fim:
-                if curr_date.weekday() == 0: # Segunda-feira
+                if curr_date.weekday() == data_base_diarista.weekday(): 
                     semanas_passadas = (curr_date - data_base_diarista).days // 7
+                    
                     if semanas_passadas % 2 == 0:
                         eventos_js.append({
                             "id": f"rec-{ev_id}-{curr_date.isoformat()}",
