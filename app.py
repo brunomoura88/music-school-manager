@@ -705,40 +705,31 @@ def api_eventos():
     if nome_logado in gestores_escola:
         query_eventos = """
             SELECT 
-                ev.id, 
-                ev.tipo_evento, 
-                ev.titulo, 
-                ev.data_evento, 
-                ev.horario_inicio, 
-                ev.horario_fim, 
-                ev.recorrencia,
+                ev.id, ev.tipo_evento, ev.titulo, ev.data_evento, 
+                ev.horario_inicio, ev.horario_fim, ev.recorrencia,
                 string_agg(al.nome, ' & ') AS alunos_nomes, 
                 p.nome AS prof_nome
             FROM eventos_agenda ev
             LEFT JOIN evento_alunos ea ON ev.id = ea.id_evento
             LEFT JOIN alunos al ON ea.id_aluno = al.id
             LEFT JOIN professores p ON ev.id_professor = p.id
-            WHERE ev.data_evento BETWEEN %s AND %s
+            WHERE ev.data_evento BETWEEN %s AND %s OR ev.recorrencia != 'Nenhuma'
             GROUP BY ev.id, p.nome;
         """
         cursor.execute(query_eventos, (dt_inicio, dt_fim))
     else:
         query_eventos = """
             SELECT 
-                ev.id, 
-                ev.tipo_evento, 
-                ev.titulo, 
-                ev.data_evento, 
-                ev.horario_inicio, 
-                ev.horario_fim, 
-                ev.recorrencia,
+                ev.id, ev.tipo_evento, ev.titulo, ev.data_evento, 
+                ev.horario_inicio, ev.horario_fim, ev.recorrencia,
                 string_agg(al.nome, ' & ') AS alunos_nomes, 
                 p.nome AS prof_nome
             FROM eventos_agenda ev
             LEFT JOIN evento_alunos ea ON ev.id = ea.id_evento
             LEFT JOIN alunos al ON ea.id_aluno = al.id
             LEFT JOIN professores p ON ev.id_professor = p.id
-            WHERE (ev.data_evento BETWEEN %s AND %s) AND (ev.id_professor = %s OR ev.tipo_evento = 'Bloqueio' OR ev.tipo_evento = 'Feriado')
+            WHERE (ev.data_evento BETWEEN %s AND %s OR ev.recorrencia != 'Nenhuma') 
+              AND (ev.id_professor = %s OR ev.tipo_evento = 'Bloqueio' OR ev.tipo_evento = 'Feriado')
             GROUP BY ev.id, p.nome;
         """
         cursor.execute(query_eventos, (dt_inicio, dt_fim, session["professor_id"]))
@@ -775,37 +766,52 @@ def api_eventos():
             al_nomes = row[7] if len(row) > 7 else ""
             p_nome = row[8] if len(row) > 8 else ""
 
-        if hasattr(h_ini, 'total_seconds'):
-            secs = int(h_ini.total_seconds())
-            h_ini_str = f"{secs // 3600:02d}:{(secs % 3600) // 60:02d}:00"
-        elif hasattr(h_ini, 'strftime'):
-            h_ini_str = h_ini.strftime("%H:%M:%S")
-        else:
-            h_ini_str = str(h_ini)[:8]
-
-        if hasattr(h_fim, 'total_seconds'):
-            secs = int(h_fim.total_seconds())
-            h_fim_str = f"{secs // 3600:02d}:{(secs % 3600) // 60:02d}:00"
-        elif hasattr(h_fim, 'strftime'):
-            h_fim_str = h_fim.strftime("%H:%M:%S")
-        else:
-            h_fim_str = str(h_fim)[:8]
-
+        # Padronização estrita de strings de tempo para o FullCalendar aceitar nas visões semana/dia
+        h_ini_str = h_ini.strftime("%H:%M:%S") if hasattr(h_ini, 'strftime') else str(h_ini)[:8]
+        h_fim_str = h_fim.strftime("%H:%M:%S") if hasattr(h_fim, 'strftime') else str(h_fim)[:8]
         if hasattr(dt, 'isoformat'):
-            dt_iso = dt.isoformat()
+            dt_original = dt
         else:
-            dt_iso = str(dt).split(" ")[0]
+            dt_original = datetime.strptime(str(dt).split(" ")[0], "%Y-%m-%d").date()
 
+        # Monta o título descritivo do bloco
+        titulo_bloco = titulo
+        if al_nomes:
+            titulo_bloco = f"{al_nomes} ({p_nome if p_nome else 'Professor'})"
+        elif tipo == "Bloqueio":
+            titulo_bloco = titulo if titulo else "Bloqueio de Horário"
+
+        # 🔄 LÓGICA 1: RECORRÊNCIA SEMANAL (Aulas Fixas da Escola)
+        if rec == "Semanal":
+            curr_date = dt_inicio
+            dia_da_semana_alvo = dt_original.weekday() # Descobre se a aula original é uma segunda, terça...
+            
+            while curr_date <= dt_fim:
+                if curr_date.weekday() == dia_da_semana_alvo:
+                    eventos_js.append({
+                        "id": f"semanal-{ev_id}-{curr_date.isoformat()}",
+                        "title": titulo_bloco,
+                        "start": f"{curr_date.isoformat()}T{h_ini_str}",
+                        "end": f"{curr_date.isoformat()}T{h_fim_str}",
+                        "backgroundColor": cores_tipo.get(tipo, "#28a745"),
+                        "borderColor": cores_tipo.get(tipo, "#28a745"),
+                        "textColor": "#ffffff" if tipo != "Recuperacao" else "#000000",
+                        "allDay": False
+                    })
+                curr_date += timedelta(days=1)
+            continue
+
+        # 🔄 LÓGICA 2: RECORRÊNCIA QUINZENAL (Diarista - Segunda sim, segunda não)
         if rec == "Quinzenal_Sim_Nao":
-            data_base_diarista = date(2026, 6, 1)
+            data_base_diarista = date(2026, 6, 1) # Primeira segunda de Junho de 2026
             curr_date = dt_inicio
             while curr_date <= dt_fim:
-                if curr_date.weekday() == 0:
+                if curr_date.weekday() == 0: # Segunda-feira
                     semanas_passadas = (curr_date - data_base_diarista).days // 7
                     if semanas_passadas % 2 == 0:
                         eventos_js.append({
                             "id": f"rec-{ev_id}-{curr_date.isoformat()}",
-                            "title": titulo if titulo else "Bloqueio de Horário",
+                            "title": titulo_bloco,
                             "start": f"{curr_date.isoformat()}T{h_ini_str}",
                             "end": f"{curr_date.isoformat()}T{h_fim_str}",
                             "backgroundColor": cores_tipo.get(tipo, "#6c757d"),
@@ -815,17 +821,12 @@ def api_eventos():
                 curr_date += timedelta(days=1)
             continue
 
-        titulo_bloco = titulo
-        if al_nomes:
-            titulo_bloco = f"{al_nomes} ({p_nome if p_nome else 'Professor'})"
-        elif tipo == "Bloqueio":
-            titulo_bloco = titulo if titulo else "Bloqueio de Horário"
-
+        # EVENTOS ÚNICOS (Sem recorrência)
         eventos_js.append({
             "id": str(ev_id),
             "title": titulo_bloco,
-            "start": f"{dt_iso}T{h_ini_str}",
-            "end": f"{dt_iso}T{h_fim_str}",
+            "start": f"{dt_original.isoformat()}T{h_ini_str}",
+            "end": f"{dt_original.isoformat()}T{h_fim_str}",
             "backgroundColor": cores_tipo.get(tipo, "#28a745"),
             "borderColor": cores_tipo.get(tipo, "#28a745"),
             "textColor": "#ffffff" if tipo != "Recuperacao" else "#000000",
