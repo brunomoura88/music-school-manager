@@ -1149,30 +1149,34 @@ def api_eventos_excluir(id_evento):
     cursor = conn.cursor()
 
     try:
-        # 1. Se for um evento recorrente clonado na tela, o FullCalendar gera um ID tipo "semanal-12-2026-06-09"
-        # Precisamos extrair o ID real do banco (que é o número do meio)
-        id_real = id_evento
-        if "-" in str(id_evento):
-            partes = str(id_evento).split("-")
+        # 1. Trata o ID caso ele venha do FullCalendar como "semanal-45-2026-06-09" ou "rec-45-..."
+        id_str = str(id_evento)
+        if "-" in id_str:
+            partes = id_str.split("-")
+            # Procura pelo pedaço que contém o ID real numérico do banco
             if len(partes) > 1 and partes[1].isdigit():
                 id_real = int(partes[1])
+            else:
+                id_real = int(id_str)
+        else:
+            id_real = int(id_str)
 
-        # 2. Primeiro removemos os vínculos na tabela intermediária dos alunos (Evita o erro de trava do banco)
+        # 2. Primeiro removemos os vínculos na tabela intermediária convertendo para INTEIRO
         cursor.execute("DELETE FROM evento_alunos WHERE id_evento = %s;", (id_real,))
 
-        # 3. Agora sim, removemos o evento principal da agenda
+        # 3. Agora sim, removemos o evento principal da agenda convertendo para INTEIRO
         cursor.execute("DELETE FROM eventos_agenda WHERE id = %s;", (id_real,))
 
         conn.commit()
         print(f"✅ Evento {id_real} removido com sucesso!")
     except Exception as e:
         conn.rollback()
-        print(f"❌ Erro ao deletar evento: {e}")
+        print(f"❌ Erro crítico ao deletar evento {id_evento}: {e}")
     finally:
         cursor.close()
         conn.close()
 
-    # Redireciona de volta para a página da agenda v2 para recarregar a tela limpa
+    # Redireciona de volta para a página da agenda v2 para atualizar a tela no automático
     return redirect("/agenda-v2")
 
 if __name__ == "__main__":
