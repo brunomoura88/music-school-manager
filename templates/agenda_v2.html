@@ -254,7 +254,7 @@
                 
                 // INTEGRAÇÃO DINÂMICA: Envia a sala selecionada para a API do Python (AJUSTE FALTANTE!)
                 events: function(fetchInfo, successCallback, failureCallback) {
-                    var sala = filtroSala.value;
+                    var sala = filtroSala.value || "1";
                     fetch(`/api/eventos?start=${fetchInfo.startStr}&end=${fetchInfo.endStr}&sala=${sala}`)
                         .then(response => response.json())
                         .then(data => successCallback(data))
