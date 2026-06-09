@@ -1095,9 +1095,12 @@ def migrar_agenda():
         "Domingo": date(2026, 6, 21)
     }
 
+    # Busque a rota da migração no seu app.py (provavelmente @app.route("/migrar-agenda"))
+# e substitua o bloco try/except interno por este:
+
     try:
-        # 1. Puxa todos os horários fixos e ativos da tabela antiga
-        cursor.execute("SELECT id, dia_semana, horario, id_professor, id_aluno, tipo_aula FROM agenda;")
+        # 1. Puxamos o id_sala também da tabela antiga (agenda)
+        cursor.execute("SELECT id, dia_semana, horario, id_professor, id_aluno, tipo_aula, id_sala FROM agenda;")
         agendas_antigas = cursor.fetchall()
 
         contador = 0
@@ -1110,8 +1113,10 @@ def migrar_agenda():
                 id_prof = item.get("id_professor")
                 id_aluno = item.get("id_aluno")
                 tipo = item.get("tipo_aula")
+                sala_antiga = item.get("id_sala") # Captura a sala antiga
             else:
                 dia_texto, hora_original, id_prof, id_aluno, tipo = item[1], item[2], item[3], item[4], item[5]
+                sala_antiga = item[6] if len(item) > 6 else 1 # Captura a sala antiga se existir
 
             if not id_aluno or dia_texto not in dias_datas_v2:
                 continue
@@ -1125,22 +1130,24 @@ def migrar_agenda():
 
             data_start_real = dias_datas_v2[dia_texto]
             tipo_convertido = "Aula" if tipo == "Regular" or tipo == "Fixa" else "Recuperacao"
+            
+            # Garante que a sala seja 1 ou 2 (caso esteja nula ou vazia no histórico antigo)
+            sala_final = int(sala_antiga) if sala_antiga and str(sala_antiga).isdigit() else 1
 
-            # Criamos um ponto de salvamento para cada linha. Se der erro em um aluno, desfazemos só essa linha
             cursor.execute("SAVEPOINT linha_migracao;")
             
             try:
-                # 2. INSERE NA TABELA PRINCIPAL 'eventos_agenda'
+                # 2. INSERE NA TABELA PRINCIPAL INCLUINDO A SALA CORRETA MIGRADA
                 query_insere = """
-                    INSERT INTO eventos_agenda (titulo, data_evento, horario_inicio, horario_fim, id_professor, tipo_evento, recorrencia)
-                    VALUES (%s, %s, %s, %s, %s, %s, 'Semanal') RETURNING id;
+                    INSERT INTO eventos_agenda (titulo, data_evento, horario_inicio, horario_fim, id_professor, tipo_evento, recorrencia, id_sala)
+                    VALUES (%s, %s, %s, %s, %s, %s, 'Semanal', %s) RETURNING id;
                 """
-                cursor.execute(query_insere, ("Aula Regular", data_start_real, h_ini_str, h_fim_str, id_prof, tipo_convertido))
+                cursor.execute(query_insere, ("Aula Regular", data_start_real, h_ini_str, h_fim_str, id_prof, tipo_convertido, sala_final))
                 
                 res_novo = cursor.fetchone()
                 id_evento_novo = res_novo['id'] if isinstance(res_novo, dict) else res_novo[0]
 
-                # 3. INSERE NA TABELA INTERMEDIÁRIA 'evento_alunos'
+                # 3. INSERE NA TABELA INTERMEDIÁRIA
                 cursor.execute(
                     "INSERT INTO evento_alunos (id_evento, id_aluno) VALUES (%s, %s);",
                     (id_evento_novo, id_aluno)
@@ -1148,12 +1155,11 @@ def migrar_agenda():
                 cursor.execute("RELEASE SAVEPOINT linha_migracao;")
                 contador += 1
             except Exception:
-                # Se der erro de chave (aluno inexistente), cancela só este insert e continua o loop
                 cursor.execute("ROLLBACK TO SAVEPOINT linha_migracao;")
                 pula_erros += 1
 
         conn.commit()
-        mensagem = f"✅ SUCESSO! {contador} horários migrados com perfeição. ({pula_erros} registros antigos pulados por falta de cadastro de aluno)."
+        mensagem = f"✅ SUCESSO! {contador} horários migrados com as salas antigas respeitadas! ({pula_erros} pulados)."
     except Exception as e:
         conn.rollback()
         mensagem = f"❌ ERRO CRÍTICO NA MIGRAÇÃO: {str(e)}"
