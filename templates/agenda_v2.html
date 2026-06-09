@@ -52,10 +52,10 @@
         
         /* CORREÇÃO DO TOPO DA TABELA (DIAS DA SEMANA) */
         .fc-col-header-cell {
-            background-color: #222222 !important; /* Tira o fundo branco e coloca cinza escuro */
+            background-color: #222222 !important;
         }
         .fc-col-header-cell-cushion {
-            color: #d4af37 !important; /* Força o texto dos dias (dom, seg, ter) a ficar Dourado */
+            color: #d4af37 !important;
             font-weight: bold;
             display: inline-block;
             padding: 5px !important;
@@ -116,6 +116,16 @@
 
     <div class="container-fluid container-md my-3 my-md-5">
         <div class="calendar-container">
+            <div class="row mb-3 align-items-end">
+                <div class="col-md-4">
+                    <label for="filtroSala" class="form-label fw-bold text-white">🏫 Visualizar Sala de Aula:</label>
+                    <select id="filtroSala" class="form-select bg-dark text-white border-secondary">
+                        <option value="">Visualizar Ambas as Salas (Bolo)</option>
+                        <option value="1">Sala 01</option>
+                        <option value="2">Sala 02</option>
+                    </select>
+                </div>
+            </div>
             <div id="calendar"></div>
         </div>
     </div>
@@ -154,8 +164,8 @@
                             </select>
                         </div>
 
-                        <div class="row g-2 mb-3">
-                            <div class="col-6" id="blocoProfessor">
+                        <div class="row g-3 mb-3">
+                            <div class="col-12 col-md-6" id="blocoProfessor">
                                 <label class="form-label small text-white-50">Professor</label>
                                 <select class="form-select bg-dark text-white border-secondary" name="id_professor">
                                     <option value="">Selecione...</option>
@@ -164,7 +174,7 @@
                                     {% endfor %}
                                 </select>
                             </div>
-                            <div class="col-6" id="blocoDisciplina">
+                            <div class="col-12 col-md-6" id="blocoDisciplina">
                                 <label class="form-label small text-white-50">Disciplina</label>
                                 <select class="form-select bg-dark text-white border-secondary" name="id_disciplina">
                                     <option value="">Selecione...</option>
@@ -173,6 +183,14 @@
                                     {% endfor %}
                                 </select>
                             </div>
+                        </div>
+
+                        <div class="mb-3" id="blocoSala">
+                            <label for="id_sala" class="form-label small text-white-50">🏫 Sala Alocada para a Aula</label>
+                            <select name="id_sala" id="id_sala" class="form-select bg-dark text-white border-secondary" required>
+                                <option value="1">Sala 01</option>
+                                <option value="2">Sala 02</option>
+                            </select>
                         </div>
 
                         <div class="row g-2 mb-3">
@@ -214,8 +232,9 @@
     <script>
         document.addEventListener('DOMContentLoaded', function() {
             var calendarEl = document.getElementById('calendar');
+            var filtroSala = document.getElementById('filtroSala');
             
-            // Inteligência de Responsividade: Se a tela for menor que 768px, abre na visão de "Dia"
+            // Inteligência de Responsividade
             var visaoInicial = window.innerWidth < 768 ? 'timeGridDay' : 'timeGridWeek';
 
             var calendar = new FullCalendar.Calendar(calendarEl, {
@@ -233,17 +252,29 @@
                 contentHeight: 'auto',
                 handleWindowResize: true,
                 expandRows: true,
-                events: '/api/eventos',
+                
+                // INTEGRAÇÃO DINÂMICA: Envia a sala selecionada para a API do Python (AJUSTE FALTANTE!)
+                events: function(fetchInfo, successCallback, failureCallback) {
+                    var sala = filtroSala.value;
+                    fetch(`/api/eventos?start=${fetchInfo.startStr}&end=${fetchInfo.endStr}&sala=${sala}`)
+                        .then(response => response.json())
+                        .then(data => successCallback(data))
+                        .catch(error => failureCallback(error));
+                },
                 
                 eventClick: function(info) {
                     if (confirm("Deseja mesmo REMOVER o agendamento de: " + info.event.title + "?")) {
-                        // Força a mudança de endereço da página inteira no navegador!
-                        // Isso simula você digitando o link direto na barra de endereços, ativando o GET do Python
                         window.location.href = "/api/eventos/excluir/" + info.event.id;
                     }
                 }
             });
+            
             calendar.render();
+
+            // ESCUTADOR DINÂMICO: Força o FullCalendar a se redesenhar na hora ao trocar de sala (AJUSTE FALTANTE!)
+            filtroSala.addEventListener('change', function() {
+                calendar.refetchEvents();
+            });
         });
 
         function ajustarFormulario() {
