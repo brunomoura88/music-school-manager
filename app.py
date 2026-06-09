@@ -691,6 +691,7 @@ def api_eventos():
 
     data_inicio_str = request.args.get("start")
     data_fim_str = request.args.get("end")
+    sala_filtrada = request.args.get("sala") # Captura o filtro de sala vindo da tela
 
     if not data_inicio_str or not data_fim_str:
         return jsonify([]), 400
@@ -701,48 +702,42 @@ def api_eventos():
     conn = obter_conexao()
     cursor = conn.cursor()
 
+    # Query trazendo o id_sala e a cor do professor
     if nome_logado in gestores_escola:
         query_eventos = """
             SELECT 
                 ev.id, ev.tipo_evento, ev.titulo, ev.data_evento, 
-                ev.horario_inicio, ev.horario_fim, ev.recorrencia,
+                ev.horario_inicio, ev.horario_fim, ev.recorrencia, ev.id_sala,
                 string_agg(al.nome, ' & ') AS alunos_nomes, 
-                p.nome AS prof_nome
+                p.nome AS prof_nome, p.cor AS prof_cor
             FROM eventos_agenda ev
             LEFT JOIN evento_alunos ea ON ev.id = ea.id_evento
             LEFT JOIN alunos al ON ea.id_aluno = al.id
             LEFT JOIN professores p ON ev.id_professor = p.id
             WHERE ev.data_evento BETWEEN %s AND %s OR ev.recorrencia != 'Nenhuma'
-            GROUP BY ev.id, p.nome;
+            GROUP BY ev.id, p.nome, p.cor;
         """
         cursor.execute(query_eventos, (dt_inicio, dt_fim))
     else:
         query_eventos = """
             SELECT 
                 ev.id, ev.tipo_evento, ev.titulo, ev.data_evento, 
-                ev.horario_inicio, ev.horario_fim, ev.recorrencia,
+                ev.horario_inicio, ev.horario_fim, ev.recorrencia, ev.id_sala,
                 string_agg(al.nome, ' & ') AS alunos_nomes, 
-                p.nome AS prof_nome
+                p.nome AS prof_nome, p.cor AS prof_cor
             FROM eventos_agenda ev
             LEFT JOIN evento_alunos ea ON ev.id = ea.id_evento
             LEFT JOIN alunos al ON ea.id_aluno = al.id
             LEFT JOIN professores p ON ev.id_professor = p.id
             WHERE (ev.data_evento BETWEEN %s AND %s OR ev.recorrencia != 'Nenhuma') 
               AND (ev.id_professor = %s OR ev.tipo_evento = 'Bloqueio' OR ev.tipo_evento = 'Feriado')
-            GROUP BY ev.id, p.nome;
+            GROUP BY ev.id, p.nome, p.cor;
         """
         cursor.execute(query_eventos, (dt_inicio, dt_fim, session["professor_id"]))
 
     eventos_banco = cursor.fetchall()
     eventos_js = []
     
-    cores_tipo = {
-        "Aula": "#28a745",
-        "Recuperacao": "#ffc107",
-        "Bloqueio": "#6c757d",
-        "Feriado": "#dc3545"
-    }
-
     for row in eventos_banco:
         if isinstance(row, dict) or hasattr(row, 'get'):
             ev_id = row.get('id')
@@ -752,25 +747,24 @@ def api_eventos():
             h_ini = row.get('horario_inicio')
             h_fim = row.get('horario_fim')
             rec = row.get('recorrencia')
+            id_sala_banco = row.get('id_sala')
             al_nomes = row.get('alunos_nomes')
             p_nome = row.get('prof_nome')
+            p_cor = row.get('prof_cor')
         else:
-            ev_id = row[0]
-            tipo = row[1]
-            titulo = row[2]
-            dt = row[3]
-            h_ini = row[4]
-            h_fim = row[5]
-            rec = row[6]
-            al_nomes = row[7] if len(row) > 7 else ""
-            p_nome = row[8] if len(row) > 8 else ""
+            ev_id, tipo, titulo, dt, h_ini, h_fim, rec, id_sala_banco = row[0], row[1], row[2], row[3], row[4], row[5], row[6], row[7]
+            al_nomes = row[8] if len(row) > 8 else ""
+            p_nome = row[9] if len(row) > 9 else ""
+            p_cor = row[10] if len(row) > 10 else ""
+
+        # FILTRO DE SALA DINÂMICO
+        # Se o usuário escolheu uma sala específica no topo da página, ignoramos as outras
+        if sala_filtrada and str(id_sala_banco) != str(sala_filtrada):
+            continue
 
         h_ini_str = h_ini.strftime("%H:%M:%S") if hasattr(h_ini, 'strftime') else str(h_ini)[:8]
         h_fim_str = h_fim.strftime("%H:%M:%S") if hasattr(h_fim, 'strftime') else str(h_fim)[:8]
-        if hasattr(dt, 'isoformat'):
-            dt_original = dt
-        else:
-            dt_original = datetime.strptime(str(dt).split(" ")[0], "%Y-%m-%d").date()
+        dt_original = dt if hasattr(dt, 'isoformat') else datetime.strptime(str(dt).split(" ")[0], "%Y-%m-%d").date()
 
         titulo_bloco = titulo
         if al_nomes:
@@ -778,59 +772,52 @@ def api_eventos():
         elif tipo == "Bloqueio":
             titulo_bloco = titulo if titulo else "Bloqueio de Horário"
 
-        # 🔄 LÓGICA 1: RECORRÊNCIA SEMANAL (Aulas Fixas da Escola)
+        # LÓGICA DE CORES: Puxa a cor do banco, mas respeita cinza para bloqueio e vermelho para feriado
+        cor_final = p_cor if p_cor else "#28a745"
+        if tipo == "Bloqueio": cor_final = "#6c757d"
+        if tipo == "Feriado": cor_final = "#dc3545"
+
+        evento_template = {
+            "title": titulo_bloco,
+            "backgroundColor": cor_final,
+            "borderColor": cor_final,
+            "textColor": "#ffffff" if tipo != "Recuperacao" else "#000000",
+            "allDay": False
+        }
+
         if rec == "Semanal":
             curr_date = dt_inicio
             dia_da_semana_alvo = dt_original.weekday()
-            
             while curr_date <= dt_fim:
                 if curr_date.weekday() == dia_da_semana_alvo:
-                    eventos_js.append({
-                        "id": f"semanal-{ev_id}-{curr_date.isoformat()}",
-                        "title": titulo_bloco,
-                        "start": f"{curr_date.isoformat()}T{h_ini_str}",
-                        "end": f"{curr_date.isoformat()}T{h_fim_str}",
-                        "backgroundColor": cores_tipo.get(tipo, "#28a745"),
-                        "borderColor": cores_tipo.get(tipo, "#28a745"),
-                        "textColor": "#ffffff" if tipo != "Recuperacao" else "#000000",
-                        "allDay": False
-                    })
+                    ev_clone = evento_template.copy()
+                    ev_clone["id"] = f"semanal-{ev_id}-{curr_date.isoformat()}"
+                    ev_clone["start"] = f"{curr_date.isoformat()}T{h_ini_str}"
+                    ev_clone["end"] = f"{curr_date.isoformat()}T{h_fim_str}"
+                    eventos_js.append(ev_clone)
                 curr_date += timedelta(days=1)
             continue
 
-        # 🔄 LÓGICA 2: RECORRÊNCIA QUINZENAL CORRIGIDA (Diarista - Segunda sim, segunda não)
         if rec == "Quinzenal_Sim_Nao":
             curr_date = dt_inicio
             data_base_diarista = dt_original 
-            
             while curr_date <= dt_fim:
                 if curr_date.weekday() == data_base_diarista.weekday(): 
                     semanas_passadas = (curr_date - data_base_diarista).days // 7
-                    
                     if semanas_passadas % 2 == 0:
-                        eventos_js.append({
-                            "id": f"rec-{ev_id}-{curr_date.isoformat()}",
-                            "title": titulo_bloco,
-                            "start": f"{curr_date.isoformat()}T{h_ini_str}",
-                            "end": f"{curr_date.isoformat()}T{h_fim_str}",
-                            "backgroundColor": cores_tipo.get(tipo, "#6c757d"),
-                            "borderColor": cores_tipo.get(tipo, "#6c757d"),
-                            "allDay": False
-                        })
+                        ev_clone = evento_template.copy()
+                        ev_clone["id"] = f"rec-{ev_id}-{curr_date.isoformat()}",
+                        ev_clone["start"] = f"{curr_date.isoformat()}T{h_ini_str}"
+                        ev_clone["end"] = f"{curr_date.isoformat()}T{h_fim_str}"
+                        eventos_js.append(ev_clone)
                 curr_date += timedelta(days=1)
             continue
 
-        # EVENTOS ÚNICOS (Sem recorrência)
-        eventos_js.append({
-            "id": str(ev_id),
-            "title": titulo_bloco,
-            "start": f"{dt_original.isoformat()}T{h_ini_str}",
-            "end": f"{dt_original.isoformat()}T{h_fim_str}",
-            "backgroundColor": cores_tipo.get(tipo, "#28a745"),
-            "borderColor": cores_tipo.get(tipo, "#28a745"),
-            "textColor": "#ffffff" if tipo != "Recuperacao" else "#000000",
-            "allDay": False
-        })
+        ev_unico = evento_template.copy()
+        ev_unico["id"] = str(ev_id)
+        ev_unico["start"] = f"{dt_original.isoformat()}T{h_ini_str}"
+        ev_unico["end"] = f"{dt_original.isoformat()}T{h_fim_str}"
+        eventos_js.append(ev_unico)
 
     cursor.close()
     conn.close()
@@ -1012,6 +999,7 @@ def api_eventos_salvar():
     id_professor = request.form.get("id_professor")
     id_disciplina = request.form.get("id_disciplina")
     recorrencia = request.form.get("recorrencia", "Nenhuma")
+    id_sala = request.form.get("id_sala", 1) # Captura a sala vinda do Modal
 
     alunos_ids = request.form.getlist("alunos_ids")
 
@@ -1024,15 +1012,16 @@ def api_eventos_salvar():
     cursor = conn.cursor()
 
     try:
+        # Query atualizada incluindo id_sala
         query_evento = """
-            INSERT INTO eventos_agenda (titulo, descricao, data_evento, horario_inicio, horario_fim, id_professor, id_disciplina, tipo_evento, recorrencia)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s) RETURNING id;
+            INSERT INTO eventos_agenda (titulo, descricao, data_evento, horario_inicio, horario_fim, id_professor, id_disciplina, tipo_evento, recorrencia, id_sala)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s) RETURNING id;
         """
         cursor.execute(query_evento, (
             titulo, descricao, data_evento, horario_inicio, horario_fim, 
             id_professor if id_professor else None, 
             id_disciplina if id_disciplina else None, 
-            tipo_evento, recorrencia
+            tipo_evento, recorrencia, int(id_sala)
         ))
         
         res_evento = cursor.fetchone()
