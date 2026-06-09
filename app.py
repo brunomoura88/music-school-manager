@@ -1044,35 +1044,6 @@ def api_eventos_salvar():
 
     return redirect("/agenda-v2")
 
-@app.route("/api/eventos/excluir/<id_evento>")
-def api_eventos_excluir(id_evento):
-    if "professor_id" not in session:
-        return redirect("/")
-
-    # Limpa o ID se ele vier com o prefixo da diarista
-    id_evento_str = str(id_evento)
-    if id_evento_str.startswith("rec-"):
-        # Pega a segunda parte (ex: rec-15-2026-06-01 vira 15)
-        id_real = id_evento_str.split("-")[1]
-    else:
-        id_real = id_evento_str
-
-    conn = obter_conexao()
-    cursor = conn.cursor()
-
-    try:
-        # Forçamos a conversão para inteiro para o banco não se perder
-        cursor.execute("DELETE FROM eventos_agenda WHERE id = %s;", (int(id_real),))
-        conn.commit()
-    except Exception as e:
-        conn.rollback()
-        print(f"Erro crítico na exclusão da agenda: {e}")
-    finally:
-        cursor.close()
-        conn.close()
-
-    # Força a página inteira a recarregar na marra
-    return redirect("/agenda-v2")
 
 @app.route("/migrar-agenda")
 def migrar_agenda():
@@ -1168,6 +1139,41 @@ def migrar_agenda():
         conn.close()
 
     return f"<h3>{mensagem}</h3><br><a href='/agenda-v2'>Ir para a Nova Agenda</a>"
+
+@app.route("/api/eventos/excluir/<id_evento>")
+def api_eventos_excluir(id_evento):
+    if "professor_id" not in session:
+        return redirect("/")
+
+    conn = obter_conexao()
+    cursor = conn.cursor()
+
+    try:
+        # 1. Se for um evento recorrente clonado na tela, o FullCalendar gera um ID tipo "semanal-12-2026-06-09"
+        # Precisamos extrair o ID real do banco (que é o número do meio)
+        id_real = id_evento
+        if "-" in str(id_evento):
+            partes = str(id_evento).split("-")
+            if len(partes) > 1 and partes[1].isdigit():
+                id_real = int(partes[1])
+
+        # 2. Primeiro removemos os vínculos na tabela intermediária dos alunos (Evita o erro de trava do banco)
+        cursor.execute("DELETE FROM evento_alunos WHERE id_evento = %s;", (id_real,))
+
+        # 3. Agora sim, removemos o evento principal da agenda
+        cursor.execute("DELETE FROM eventos_agenda WHERE id = %s;", (id_real,))
+
+        conn.commit()
+        print(f"✅ Evento {id_real} removido com sucesso!")
+    except Exception as e:
+        conn.rollback()
+        print(f"❌ Erro ao deletar evento: {e}")
+    finally:
+        cursor.close()
+        conn.close()
+
+    # Redireciona de volta para a página da agenda v2 para recarregar a tela limpa
+    return redirect("/agenda-v2")
 
 if __name__ == "__main__":
     porta = int(os.environ.get("PORT", 5000))
