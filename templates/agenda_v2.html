@@ -96,6 +96,43 @@
             border-bottom: 1px solid #333;
             background-color: #0b0b0b;
         }
+            
+        /* Tag REC de Recuperação */
+        .rec-tag {
+            background-color: #dc3545;
+            color: #ffffff;
+            font-size: 10px;
+            font-weight: bold;
+            padding: 1px 4px;
+            border-radius: 4px;
+            position: absolute;
+            top: 2px;
+            right: 2px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+        }
+        /* Botão da Lixeira Premium */
+        .btn-deletar-event {
+            background: none;
+            border: none;
+            color: rgba(255, 255, 255, 0.7);
+            font-size: 13px;
+            position: absolute;
+            bottom: 2px;
+            right: 5px;
+            cursor: pointer;
+            transition: color 0.2s;
+            padding: 2px;
+            z-index: 10;
+        }
+        .btn-deletar-event:hover {
+            color: #ff4d4d !important;
+        }
+        /* Ajuste para o texto não passar por cima dos botões */
+        .fc-event-title {
+            padding-right: 18px !important;
+            font-size: 11px !important;
+            line-height: 1.2 !important;
+        }
     </style>
 </head>
 <body>
@@ -260,6 +297,58 @@
                         .then(data => successCallback(data))
                         .catch(error => failureCallback(error));
                 },
+
+                // ... resto das configurações anteriores (slotMinTime, slotMaxTime, etc)
+                events: function(fetchInfo, successCallback, failureCallback) {
+                    var sala = filtroSala.value;
+                    fetch(`/api/eventos?start=${fetchInfo.startStr}&end=${fetchInfo.endStr}&sala=${sala}`)
+                        .then(response => response.json())
+                        .then(data => successCallback(data))
+                        .catch(error => failureCallback(error));
+                },
+
+                // 🎨 INJEÇÃO CUSTOMIZADA DA LIXEIRA E TAG REC
+                eventContent: function(arg) {
+                    var tipo = arg.event.extendedProps.tipo;
+                    
+                    // Container principal do card
+                    var container = document.createElement('div');
+                    container.style.position = 'relative';
+                    container.style.width = '100%';
+                    container.style.height = '100%';
+                    
+                    // Texto com o título da aula/alunos
+                    var tituloHtml = `<div class="fc-event-title fw-bold text-truncate">${arg.event.title}</div>`;
+                    container.innerHTML = tituloHtml;
+                    
+                    // Se for aula de Recuperação, injeta o selo "REC" vermelho no topo direito
+                    if (tipo === 'Recuperacao') {
+                        var recBadge = document.createElement('span');
+                        recBadge.className = 'rec-tag';
+                        recBadge.innerText = 'REC';
+                        container.appendChild(recBadge);
+                    }
+                    
+                    // Injeta o botão da lixeira no canto inferior direito
+                    var btnLixeira = document.createElement('button');
+                    btnLixeira.className = 'btn-deletar-event';
+                    btnLixeira.innerHTML = '<i class="bi bi-trash3-fill"></i>';
+                    
+                    // Evento de clique exclusivo na lixeira
+                    btnLixeira.addEventListener('click', function(e) {
+                        e.stopPropagation(); // Impede o clique de ativar outras funções do card
+                        if (confirm("Deseja mesmo REMOVER o agendamento de: " + arg.event.title + "?")) {
+                            window.location.href = "/api/eventos/excluir/" + arg.event.id;
+                        }
+                    });
+                    
+                    container.appendChild(btnLixeira);
+                    
+                    return { domNodes: [container] };
+                },
+                
+                // Pode remover o 'eventClick' antigo daqui de baixo se quiser, 
+                // pois o botão da lixeira agora cuida disso de forma isolada!
                 
                 eventClick: function(info) {
                     if (confirm("Deseja mesmo REMOVER o agendamento de: " + info.event.title + "?")) {
