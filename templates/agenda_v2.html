@@ -133,6 +133,74 @@
             font-size: 11px !important;
             line-height: 1.2 !important;
         }
+
+        /* Alinhamento e espaçamento interno do card de aula */
+        .fc-v-event .fc-event-main {
+            padding: 8px !important;
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-start;
+            height: 100%;
+        }
+
+        /* Título customizado para quebrar linha e dar destaque */
+        .event-card-content {
+            display: flex;
+            flex-direction: column;
+            gap: 4px; /* Espaço entre o aluno e o professor */
+            width: 100%;
+        }
+
+        .event-aluno-name {
+            font-size: 13px !important;
+            font-weight: 700 !important;
+            line-height: 1.3;
+            color: #ffffff;
+            white-space: normal !important; /* Permite que o nome quebre linha se for grande ou dupla */
+        }
+
+        .event-prof-name {
+            font-size: 11px !important;
+            font-weight: 500;
+            color: rgba(255, 255, 255, 0.85);
+            display: flex;
+            align-items: center;
+            gap: 3px;
+        }
+
+        /* Ajuste do botão da lixeira para não sobrepor o texto */
+        .btn-deletar-event {
+            background: none;
+            border: none;
+            color: rgba(255, 255, 255, 0.6);
+            font-size: 14px;
+            position: absolute;
+            bottom: 6px;
+            right: 8px;
+            cursor: pointer;
+            transition: color 0.2s, transform 0.2s;
+            padding: 2px;
+            z-index: 10;
+        }
+        .btn-deletar-event:hover {
+            color: #ff4d4d !important;
+            transform: scale(1.1);
+        }
+
+        /* Garante que a tag REC fique bem posicionada com o novo espaçamento */
+        .rec-tag {
+            background-color: #dc3545;
+            color: #ffffff;
+            font-size: 9px;
+            font-weight: bold;
+            padding: 2px 5px;
+            border-radius: 4px;
+            position: absolute;
+            top: 6px;
+            right: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+            z-index: 5;
+        }
     </style>
 </head>
 <body>
@@ -308,36 +376,52 @@
                 },
 
                 // 🎨 INJEÇÃO CUSTOMIZADA DA LIXEIRA E TAG REC
-                eventContent: function(arg) {
+               eventContent: function(arg) {
                     var tipo = arg.event.extendedProps.tipo;
+                    var tituloCompleto = arg.event.title;
                     
-                    // Container principal do card
                     var container = document.createElement('div');
+                    container.className = 'event-card-content';
                     container.style.position = 'relative';
                     container.style.width = '100%';
                     container.style.height = '100%';
                     
-                    // Texto com o título da aula/alunos
-                    var tituloHtml = `<div class="fc-event-title fw-bold text-truncate">${arg.event.title}</div>`;
-                    container.innerHTML = tituloHtml;
+                    // Separa o Nome do Aluno do Nome do Professor usando o parêntese como quebra
+                    var nomeAluno = tituloCompleto;
+                    var nomeProf = "";
                     
-                    // Se for aula de Recuperação, injeta o selo "REC" vermelho no topo direito
+                    if (tituloCompleto.includes(" (") && tituloCompleto.includes(")")) {
+                        var partes = tituloCompleto.split(" (");
+                        nomeAluno = partes[0];
+                        nomeProf = partes[1].replace(")", "");
+                    }
+                    
+                    // Monta o HTML interno estruturado e bonito
+                    var htmlConteudo = `<div class="event-aluno-name">${nomeAluno}</div>`;
+                    if (nomeProf && tipo !== 'Bloqueio' && tipo !== 'Feriado') {
+                        htmlConteudo += `<div class="event-prof-name"><i class="bi bi-person-fill small"></i> ${nomeProf}</div>`;
+                    }
+                    
+                    container.innerHTML = htmlConteudo;
+                    
+                    // Se for aula de Recuperação, injeta o selo "REC"
                     if (tipo === 'Recuperacao') {
                         var recBadge = document.createElement('span');
                         recBadge.className = 'rec-tag';
                         recBadge.innerText = 'REC';
                         container.appendChild(recBadge);
+                        // Ajusta margem do texto para não colidir com o selo
+                        container.style.paddingRight = "35px";
                     }
                     
-                    // Injeta o botão da lixeira no canto inferior direito
+                    // Injeta o botão da lixeira
                     var btnLixeira = document.createElement('button');
                     btnLixeira.className = 'btn-deletar-event';
                     btnLixeira.innerHTML = '<i class="bi bi-trash3-fill"></i>';
                     
-                    // Evento de clique exclusivo na lixeira
                     btnLixeira.addEventListener('click', function(e) {
-                        e.stopPropagation(); // Impede o clique de ativar outras funções do card
-                        if (confirm("Deseja mesmo REMOVER o agendamento de: " + arg.event.title + "?")) {
+                        e.stopPropagation();
+                        if (confirm("Deseja mesmo REMOVER o agendamento de: " + nomeAluno + "?")) {
                             window.location.href = "/api/eventos/excluir/" + arg.event.id;
                         }
                     });
@@ -345,8 +429,7 @@
                     container.appendChild(btnLixeira);
                     
                     return { domNodes: [container] };
-                },
-                
+                },                
                 // Pode remover o 'eventClick' antigo daqui de baixo se quiser, 
                 // pois o botão da lixeira agora cuida disso de forma isolada!
                 
