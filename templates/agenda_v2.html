@@ -434,9 +434,13 @@
                         else if (tituloLower.includes("teclado")) nomeDisciplina = "Teclado";
                     }
                     
-                    // Se o nome do professor ficou vazio após a limpeza de histórico, define o padrão da escola
+                    // Se o nome do professor ficou vazio após a limpeza de histórico, define o padrão correto
                     if (!nomeProf && tipo !== 'Bloqueio' && tipo !== 'Feriado') {
-                        nomeProf = "Estúdio A";
+                        if (nomeDisciplina === "Bateria") {
+                            nomeProf = "Guilherme";
+                        } else {
+                            nomeProf = "Estúdio A";
+                        }
                     }
 
                     // Monta a estrutura visual premium de 3 linhas
