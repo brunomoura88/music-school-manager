@@ -1042,7 +1042,7 @@ def api_eventos_salvar():
         cursor.close()
         conn.close()
 
-    return redirect("/agenda-v2")
+    return redirect("/agenda")
 
 
 @app.route("/migrar-agenda")
@@ -1177,7 +1177,7 @@ def api_eventos_excluir(id_evento):
         conn.close()
 
     # Redireciona de volta para a página da agenda v2 para atualizar a tela no automático
-    return redirect("/agenda-v2")
+    return redirect("/agenda")
 
 if __name__ == "__main__":
     porta = int(os.environ.get("PORT", 5000))
