@@ -61,7 +61,7 @@
             padding: 5px !important;
         }
 
-       /* --- 🎨 LAYOUT PREMIUM DOS CARDS REESTRUTURADOS --- */
+        /* --- 🎨 LAYOUT DESIGN PREMIUM DOS CARDS (PC E TABLET) --- */
         .fc-v-event .fc-event-main {
             padding: 6px 8px !important;
             display: flex;
@@ -74,10 +74,10 @@
         .event-card-content {
             display: flex;
             flex-direction: column;
-            gap: 3px; /* Espaçamento equilibrado entre as 3 linhas */
+            gap: 3px; /* Espaço uniforme entre as 3 linhas */
             width: 100%;
             height: 100%;
-            padding-bottom: 18px; /* Margem de segurança para a lixeira */
+            padding-bottom: 16px; /* Evita que o texto passe por cima da lixeira */
         }
 
         .event-aluno-name {
@@ -100,9 +100,8 @@
             text-overflow: ellipsis;
         }
         
-        /* Cor sutil para diferenciar a disciplina do professor no PC */
         .event-disciplina {
-            color: #d4af37 !important; /* Dourado suave para a disciplina */
+            color: #d4af37 !important; /* Dourado suave para dar destaque ao instrumento */
         }
         
         .event-professor {
@@ -112,8 +111,8 @@
         .btn-deletar-event {
             background: none;
             border: none;
-            color: rgba(255, 255, 255, 0.6);
-            font-size: 14px;
+            color: rgba(255, 255, 255, 0.5);
+            font-size: 13px;
             position: absolute;
             bottom: 4px;
             right: 6px;
@@ -131,50 +130,16 @@
             color: #ffffff;
             font-size: 9px;
             font-weight: bold;
-            padding: 2px 5px;
+            padding: 1px 4px;
             border-radius: 4px;
             position: absolute;
             top: 6px;
-            right: 8px;
+            right: 6px;
             box-shadow: 0 2px 4px rgba(0,0,0,0.3);
             z-index: 5;
         }
 
-        /* --- 📱 ULTRA RESPONSIVIDADE PARA CELULAR (SEM QUEBRAR) --- */
-        @media (max-width: 767px) {
-            .fc-v-event .fc-event-main {
-                padding: 4px 5px !important;
-            }
-            .event-card-content {
-                padding-bottom: 14px;
-                gap: 1px; /* Encolhe o espaço no celular para caber em blocos menores */
-            }
-            .event-aluno-name {
-                font-size: 10.5px !important;
-                font-weight: 700 !important;
-                line-height: 1.1;
-            }
-            .event-info-row {
-                font-size: 9px !important;
-                line-height: 1;
-            }
-            .event-info-row i {
-                display: none !important; /* Esconde os ícones no celular para ganhar espaço de texto */
-            }
-            .btn-deletar-event {
-                font-size: 11px;
-                bottom: 2px;
-                right: 3px;
-            }
-            .rec-tag {
-                font-size: 8px;
-                padding: 1px 3px;
-                top: 2px;
-                right: 3px;
-            }
-        }
-
-        /* --- 📱 CRITÉRIOS DE RESPONSIVIDADE (MOBILE FIRST) --- */
+        /* --- 📱 CRITÉRIOS DE AJUSTE EXCLUSIVOS PARA CELULAR (MOBILE) --- */
         @media (max-width: 767px) {
             .fc .fc-toolbar {
                 flex-direction: column;
@@ -198,31 +163,30 @@
                 padding: 4px 2px !important;
             }
 
-            /* Redimensionamento cirúrgico dos elementos no celular */
+            /* Redimensionamento responsivo para o celular não esmagar as colunas */
             .fc-v-event .fc-event-main {
                 padding: 4px 4px !important;
             }
             .event-card-content {
                 padding-bottom: 12px;
-                gap: 1px;
+                gap: 1px; /* Cola as linhas sutilmente para caber tudo na vertical */
             }
             .event-aluno-name {
-                font-size: 10.5px !important;
+                font-size: 10px !important;
                 font-weight: 700 !important;
                 line-height: 1.1;
             }
-            .event-prof-name {
-                font-size: 9px !important;
-                color: rgba(255, 255, 255, 0.75);
+            .event-info-row {
+                font-size: 8.5px !important;
+                line-height: 1;
             }
-            .event-prof-name i {
-                display: none !important; /* Remove o ícone para limpar área útil */
+            .event-info-row i {
+                display: none !important; /* Esconde ícones no mobile para liberar espaço de texto */
             }
             .btn-deletar-event {
-                font-size: 11px;
+                font-size: 10px;
                 bottom: 2px;
                 right: 3px;
-                color: rgba(255, 255, 255, 0.5);
             }
             .rec-tag {
                 font-size: 8px;
@@ -397,7 +361,7 @@
                 handleWindowResize: true,
                 expandRows: true,
                 
-                // Chamada limpa e unificada para a API em Python
+                // Chamada unificada correta para puxar dados da API do Python
                 events: function(fetchInfo, successCallback, failureCallback) {
                     var sala = filtroSala.value || "1";
                     fetch(`/api/eventos?start=${fetchInfo.startStr}&end=${fetchInfo.endStr}&sala=${sala}`)
@@ -406,7 +370,7 @@
                         .catch(error => failureCallback(error));
                 },
 
-               // 🎨 INJEÇÃO CUSTOMIZADA ULTRA PREENCHIDA (ALUNO, DISCIPLINA E PROFESSOR)
+                // Renderizador inteligente de 3 linhas (Aluno, Disciplina e Professor)
                 eventContent: function(arg) {
                     var tipo = arg.event.extendedProps.tipo;
                     var tituloCompleto = arg.event.title;
@@ -417,31 +381,29 @@
                     container.style.width = '100%';
                     container.style.height = '100%';
                     
-                    // Captura variáveis vindas direto do backend (caso existam)
+                    // Puxa as propriedades dinâmicas direto das colunas correspondentes do banco
                     var nomeAluno = arg.event.extendedProps.aluno || tituloCompleto;
                     var nomeProf = arg.event.extendedProps.professor || "";
                     var nomeDisciplina = arg.event.extendedProps.disciplina || "";
                     
-                    // Lógica de contingência inteligente baseada na string do título antigo
+                    // Varredura de contingência caso o banco falte com os dados estendidos
                     if (!nomeProf && tituloCompleto.includes(" (") && tituloCompleto.includes(")")) {
                         var partes = tituloCompleto.split(" (");
                         nomeAluno = partes[0];
                         var conteudoParenteses = partes[1].replace(")", "");
                         
-                        // Se o conteúdo dos parênteses for "Bateria", "Violão", etc., tratamos como disciplina
                         var instrumentosConhecidos = ["Bateria", "Violão", "Guitarra", "Canto", "Piano", "Teclado", "Baixo"];
                         if (instrumentosConhecidos.includes(conteudoParenteses)) {
                             nomeDisciplina = conteudoParenteses;
-                            nomeProf = "Estúdio A"; // Nome genérico temporário se não houver prof na string
+                            nomeProf = ""; // Zera para não printar o instrumento no campo de professor
                         } else {
                             nomeProf = conteudoParenteses;
                         }
                     }
                     
-                    // Monta a estrutura visual premium de 3 linhas
+                    // Monta a estrutura em HTML estruturado por linhas
                     var htmlConteudo = `<div class="event-aluno-name">${nomeAluno}</div>`;
                     
-                    // Se não for bloqueio ou feriado, renderiza as linhas extras de info
                     if (tipo !== 'Bloqueio' && tipo !== 'Feriado') {
                         if (nomeDisciplina) {
                             htmlConteudo += `<div class="event-info-row event-disciplina"><i class="bi bi-music-note-beamed"></i> ${nomeDisciplina}</div>`;
@@ -453,13 +415,13 @@
                     
                     container.innerHTML = htmlConteudo;
                     
-                    // Se for aula de Recuperação, injeta o selo "REC"
+                    // Injeta a tag REC se aplicável
                     if (tipo === 'Recuperacao') {
                         var recBadge = document.createElement('span');
                         recBadge.className = 'rec-tag';
                         recBadge.innerText = 'REC';
                         container.appendChild(recBadge);
-                        container.style.paddingRight = "30px";
+                        container.style.paddingRight = "32px";
                     }
                     
                     // Injeta o botão premium da lixeira
@@ -475,14 +437,12 @@
                     });
                     
                     container.appendChild(btnLixeira);
-                    
                     return { domNodes: [container] };
-                },
+                }
             });
             
             calendar.render();
 
-            // Atualiza a grade instantaneamente ao trocar o seletor de salas
             filtroSala.addEventListener('change', function() {
                 calendar.refetchEvents();
             });
