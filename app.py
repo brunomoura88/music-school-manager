@@ -544,8 +544,8 @@ def editar_aluno(id):
     )
 
 
-@app.route("/agenda", methods=["GET", "POST"])
-def agenda():
+@app.route("/agenda_antiga", methods=["GET", "POST"])
+def agenda_antiga():
     if "professor_id" not in session: return redirect("/")
     conn = obter_conexao(); cursor = conn.cursor()
     try:
@@ -823,8 +823,8 @@ def api_eventos():
     conn.close()
     return jsonify(eventos_js)
 
-@app.route("/agenda-v2")
-def agenda_v2():
+@app.route("/agenda")
+def agenda():
     if "professor_id" not in session:
         return redirect("/")
         
