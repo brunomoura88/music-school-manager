@@ -370,7 +370,7 @@
                         .catch(error => failureCallback(error));
                 },
 
-                // Renderizador inteligente de 3 linhas (Aluno, Disciplina e Professor)
+               // 🎨 INJEÇÃO CUSTOMIZADA ULTRA PREENCHIDA (ALUNO, DISCIPLINA E PROFESSOR)
                 eventContent: function(arg) {
                     var tipo = arg.event.extendedProps.tipo;
                     var tituloCompleto = arg.event.title;
@@ -381,29 +381,68 @@
                     container.style.width = '100%';
                     container.style.height = '100%';
                     
-                    // Puxa as propriedades dinâmicas direto das colunas correspondentes do banco
+                    // Captura variáveis vindas direto do backend (caso existam)
                     var nomeAluno = arg.event.extendedProps.aluno || tituloCompleto;
                     var nomeProf = arg.event.extendedProps.professor || "";
                     var nomeDisciplina = arg.event.extendedProps.disciplina || "";
                     
-                    // Varredura de contingência caso o banco falte com os dados estendidos
+                    // Lógica de contingência inteligente baseada na string do título antigo
                     if (!nomeProf && tituloCompleto.includes(" (") && tituloCompleto.includes(")")) {
                         var partes = tituloCompleto.split(" (");
                         nomeAluno = partes[0];
-                        var conteudoParenteses = partes[1].replace(")", "");
+                        var conteudoParenteses = partes[1].replace(")", "").trim();
                         
-                        var instrumentosConhecidos = ["Bateria", "Violão", "Guitarra", "Canto", "Piano", "Teclado", "Baixo"];
-                        if (instrumentosConhecidos.includes(conteudoParenteses)) {
-                            nomeDisciplina = conteudoParenteses;
-                            nomeProf = ""; // Zera para não printar o instrumento no campo de professor
+                        // Lista em minúsculo para evitar problemas com maiúsculas/minúsculas
+                        var instrumentosConhecidos = ["bateria", "violão", "guitarra", "canto", "piano", "teclado", "baixo", "musicalização"];
+                        
+                        if (instrumentosConhecidos.includes(conteudoParenteses.toLowerCase())) {
+                            nomeDisciplina = conteudoParenteses.charAt(0).toUpperCase() + conteudoParenteses.slice(1); // Deixa Bonito: "Bateria"
+                            nomeProf = ""; // Zera o professor para não aparecer o instrumento no lugar dele
                         } else {
                             nomeProf = conteudoParenteses;
                         }
                     }
                     
-                    // Monta a estrutura em HTML estruturado por linhas
+                    // Limpeza extra para quem tem o instrumento grudado no nome (Ex: "Eduardo guitarra")
+                    if (nomeProf) {
+                        var profLower = nomeProf.toLowerCase();
+                        if (profLower.includes(" guitarra")) {
+                            nomeDisciplina = "Guitarra";
+                            nomeProf = nomeProf.replace(/ guitarra/i, "");
+                        } else if (profLower.includes(" violão")) {
+                            nomeDisciplina = "Violão";
+                            nomeProf = nomeProf.replace(/ violão/i, "");
+                        } else if (profLower.includes(" bateria")) {
+                            nomeDisciplina = "Bateria";
+                            nomeProf = nomeProf.replace(/ bateria/i, "");
+                        } else if (profLower.includes(" canto")) {
+                            nomeDisciplina = "Canto";
+                            nomeProf = nomeProf.replace(/ canto/i, "");
+                        } else if (profLower.includes(" teclado")) {
+                            nomeDisciplina = "Teclado";
+                            nomeProf = nomeProf.replace(/ teclado/i, "");
+                        }
+                    }
+                    
+                    // Fallback para exibir pelo menos a disciplina na linha se o prof estiver vazio
+                    if (!nomeDisciplina && tipo !== 'Bloqueio' && tipo !== 'Feriado') {
+                        var tituloLower = tituloCompleto.toLowerCase();
+                        if (tituloLower.includes("bateria")) nomeDisciplina = "Bateria";
+                        else if (tituloLower.includes("guitarra")) nomeDisciplina = "Guitarra";
+                        else if (tituloLower.includes("violão")) nomeDisciplina = "Violão";
+                        else if (tituloLower.includes("canto")) nomeDisciplina = "Canto";
+                        else if (tituloLower.includes("teclado")) nomeDisciplina = "Teclado";
+                    }
+                    
+                    // Se o nome do professor ficou vazio após a limpeza de histórico, define o padrão da escola
+                    if (!nomeProf && tipo !== 'Bloqueio' && tipo !== 'Feriado') {
+                        nomeProf = "Estúdio A";
+                    }
+
+                    // Monta a estrutura visual premium de 3 linhas
                     var htmlConteudo = `<div class="event-aluno-name">${nomeAluno}</div>`;
                     
+                    // Se não for bloqueio ou feriado, renderiza as linhas extras de info
                     if (tipo !== 'Bloqueio' && tipo !== 'Feriado') {
                         if (nomeDisciplina) {
                             htmlConteudo += `<div class="event-info-row event-disciplina"><i class="bi bi-music-note-beamed"></i> ${nomeDisciplina}</div>`;
@@ -415,16 +454,16 @@
                     
                     container.innerHTML = htmlConteudo;
                     
-                    // Injeta a tag REC se aplicável
+                    // Se for aula de Recuperação, injeta o selo "REC"
                     if (tipo === 'Recuperacao') {
                         var recBadge = document.createElement('span');
                         recBadge.className = 'rec-tag';
                         recBadge.innerText = 'REC';
                         container.appendChild(recBadge);
-                        container.style.paddingRight = "32px";
+                        container.style.paddingRight = "30px";
                     }
                     
-                    // Injeta o botão premium da lixeira
+                    // Injeta o botão da lixeira
                     var btnLixeira = document.createElement('button');
                     btnLixeira.className = 'btn-deletar-event';
                     btnLixeira.innerHTML = '<i class="bi bi-trash3-fill"></i>';
@@ -437,8 +476,9 @@
                     });
                     
                     container.appendChild(btnLixeira);
+                    
                     return { domNodes: [container] };
-                }
+                },
             });
             
             calendar.render();
