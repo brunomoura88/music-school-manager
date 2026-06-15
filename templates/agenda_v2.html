@@ -61,7 +61,7 @@
             padding: 5px !important;
         }
 
-        /* --- 🎨 LAYOUT PREMIUM DOS CARDS (PC E TABLET) --- */
+       /* --- 🎨 LAYOUT PREMIUM DOS CARDS REESTRUTURADOS --- */
         .fc-v-event .fc-event-main {
             padding: 6px 8px !important;
             display: flex;
@@ -74,10 +74,10 @@
         .event-card-content {
             display: flex;
             flex-direction: column;
-            gap: 2px;
+            gap: 3px; /* Espaçamento equilibrado entre as 3 linhas */
             width: 100%;
             height: 100%;
-            padding-bottom: 15px; /* Evita que o texto encoste na lixeira */
+            padding-bottom: 18px; /* Margem de segurança para a lixeira */
         }
 
         .event-aluno-name {
@@ -89,16 +89,24 @@
             word-break: break-word;
         }
 
-        .event-prof-name {
+        .event-info-row {
             font-size: 11px !important;
             font-weight: 500;
-            color: rgba(255, 255, 255, 0.85);
             display: flex;
             align-items: center;
-            gap: 4px;
+            gap: 5px;
             white-space: nowrap;
             overflow: hidden;
             text-overflow: ellipsis;
+        }
+        
+        /* Cor sutil para diferenciar a disciplina do professor no PC */
+        .event-disciplina {
+            color: #d4af37 !important; /* Dourado suave para a disciplina */
+        }
+        
+        .event-professor {
+            color: rgba(255, 255, 255, 0.85) !important;
         }
 
         .btn-deletar-event {
@@ -130,6 +138,40 @@
             right: 8px;
             box-shadow: 0 2px 4px rgba(0,0,0,0.3);
             z-index: 5;
+        }
+
+        /* --- 📱 ULTRA RESPONSIVIDADE PARA CELULAR (SEM QUEBRAR) --- */
+        @media (max-width: 767px) {
+            .fc-v-event .fc-event-main {
+                padding: 4px 5px !important;
+            }
+            .event-card-content {
+                padding-bottom: 14px;
+                gap: 1px; /* Encolhe o espaço no celular para caber em blocos menores */
+            }
+            .event-aluno-name {
+                font-size: 10.5px !important;
+                font-weight: 700 !important;
+                line-height: 1.1;
+            }
+            .event-info-row {
+                font-size: 9px !important;
+                line-height: 1;
+            }
+            .event-info-row i {
+                display: none !important; /* Esconde os ícones no celular para ganhar espaço de texto */
+            }
+            .btn-deletar-event {
+                font-size: 11px;
+                bottom: 2px;
+                right: 3px;
+            }
+            .rec-tag {
+                font-size: 8px;
+                padding: 1px 3px;
+                top: 2px;
+                right: 3px;
+            }
         }
 
         /* --- 📱 CRITÉRIOS DE RESPONSIVIDADE (MOBILE FIRST) --- */
@@ -364,7 +406,7 @@
                         .catch(error => failureCallback(error));
                 },
 
-                // Customização avançada e responsiva do conteúdo de cada card
+               // 🎨 INJEÇÃO CUSTOMIZADA ULTRA PREENCHIDA (ALUNO, DISCIPLINA E PROFESSOR)
                 eventContent: function(arg) {
                     var tipo = arg.event.extendedProps.tipo;
                     var tituloCompleto = arg.event.title;
@@ -375,24 +417,43 @@
                     container.style.width = '100%';
                     container.style.height = '100%';
                     
-                    var nomeAluno = tituloCompleto;
-                    var nomeProf = "";
+                    // Captura variáveis vindas direto do backend (caso existam)
+                    var nomeAluno = arg.event.extendedProps.aluno || tituloCompleto;
+                    var nomeProf = arg.event.extendedProps.professor || "";
+                    var nomeDisciplina = arg.event.extendedProps.disciplina || "";
                     
-                    // Divide a string para separar o aluno e o professor em linhas isoladas
-                    if (tituloCompleto.includes(" (") && tituloCompleto.includes(")")) {
+                    // Lógica de contingência inteligente baseada na string do título antigo
+                    if (!nomeProf && tituloCompleto.includes(" (") && tituloCompleto.includes(")")) {
                         var partes = tituloCompleto.split(" (");
                         nomeAluno = partes[0];
-                        nomeProf = partes[1].replace(")", "");
+                        var conteudoParenteses = partes[1].replace(")", "");
+                        
+                        // Se o conteúdo dos parênteses for "Bateria", "Violão", etc., tratamos como disciplina
+                        var instrumentosConhecidos = ["Bateria", "Violão", "Guitarra", "Canto", "Piano", "Teclado", "Baixo"];
+                        if (instrumentosConhecidos.includes(conteudoParenteses)) {
+                            nomeDisciplina = conteudoParenteses;
+                            nomeProf = "Estúdio A"; // Nome genérico temporário se não houver prof na string
+                        } else {
+                            nomeProf = conteudoParenteses;
+                        }
                     }
                     
+                    // Monta a estrutura visual premium de 3 linhas
                     var htmlConteudo = `<div class="event-aluno-name">${nomeAluno}</div>`;
-                    if (nomeProf && tipo !== 'Bloqueio' && tipo !== 'Feriado') {
-                        htmlConteudo += `<div class="event-prof-name"><i class="bi bi-person-fill small"></i> ${nomeProf}</div>`;
+                    
+                    // Se não for bloqueio ou feriado, renderiza as linhas extras de info
+                    if (tipo !== 'Bloqueio' && tipo !== 'Feriado') {
+                        if (nomeDisciplina) {
+                            htmlConteudo += `<div class="event-info-row event-disciplina"><i class="bi bi-music-note-beamed"></i> ${nomeDisciplina}</div>`;
+                        }
+                        if (nomeProf) {
+                            htmlConteudo += `<div class="event-info-row event-professor"><i class="bi bi-person-fill"></i> ${nomeProf}</div>`;
+                        }
                     }
                     
                     container.innerHTML = htmlConteudo;
                     
-                    // Adiciona a tag "REC" vermelha se for aula de recuperação
+                    // Se for aula de Recuperação, injeta o selo "REC"
                     if (tipo === 'Recuperacao') {
                         var recBadge = document.createElement('span');
                         recBadge.className = 'rec-tag';
@@ -401,21 +462,22 @@
                         container.style.paddingRight = "30px";
                     }
                     
-                    // Cria e insere o botão da lixeira no canto do card
+                    // Injeta o botão premium da lixeira
                     var btnLixeira = document.createElement('button');
                     btnLixeira.className = 'btn-deletar-event';
                     btnLixeira.innerHTML = '<i class="bi bi-trash3-fill"></i>';
                     
                     btnLixeira.addEventListener('click', function(e) {
-                        e.stopPropagation(); // Trava para o clique não disparar o modal do card
+                        e.stopPropagation();
                         if (confirm("Deseja mesmo REMOVER o agendamento de: " + nomeAluno + "?")) {
                             window.location.href = "/api/eventos/excluir/" + arg.event.id;
                         }
                     });
                     
                     container.appendChild(btnLixeira);
+                    
                     return { domNodes: [container] };
-                }
+                },
             });
             
             calendar.render();
