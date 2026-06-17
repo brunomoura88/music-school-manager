@@ -718,22 +718,6 @@ def api_eventos():
         GROUP BY ev.id, p.nome, p.cor;
     """
     cursor.execute(query_eventos, (dt_inicio, dt_fim))
-    else:
-        query_eventos = """
-            SELECT 
-                ev.id, ev.tipo_evento, ev.titulo, ev.data_evento, 
-                ev.horario_inicio, ev.horario_fim, ev.recorrencia, ev.id_sala,
-                string_agg(al.nome, ' & ') AS alunos_nomes, 
-                p.nome AS prof_nome, p.cor AS prof_cor
-            FROM eventos_agenda ev
-            LEFT JOIN evento_alunos ea ON ev.id = ea.id_evento
-            LEFT JOIN alunos al ON ea.id_aluno = al.id
-            LEFT JOIN professores p ON ev.id_professor = p.id
-            WHERE (ev.data_evento BETWEEN %s AND %s OR ev.recorrencia != 'Nenhuma') 
-              AND (ev.id_professor = %s OR ev.tipo_evento = 'Bloqueio' OR ev.tipo_evento = 'Feriado')
-            GROUP BY ev.id, p.nome, p.cor;
-        """
-        cursor.execute(query_eventos, (dt_inicio, dt_fim, session["professor_id"]))
 
     eventos_banco = cursor.fetchall()
     eventos_js = []
