@@ -703,21 +703,21 @@ def api_eventos():
     cursor = conn.cursor()
 
     # Query trazendo o id_sala e a cor do professor
-    if nome_logado in gestores_escola:
-        query_eventos = """
-            SELECT 
-                ev.id, ev.tipo_evento, ev.titulo, ev.data_evento, 
-                ev.horario_inicio, ev.horario_fim, ev.recorrencia, ev.id_sala,
-                string_agg(al.nome, ' & ') AS alunos_nomes, 
-                p.nome AS prof_nome, p.cor AS prof_cor
-            FROM eventos_agenda ev
-            LEFT JOIN evento_alunos ea ON ev.id = ea.id_evento
-            LEFT JOIN alunos al ON ea.id_aluno = al.id
-            LEFT JOIN professores p ON ev.id_professor = p.id
-            WHERE ev.data_evento BETWEEN %s AND %s OR ev.recorrencia != 'Nenhuma'
-            GROUP BY ev.id, p.nome, p.cor;
-        """
-        cursor.execute(query_eventos, (dt_inicio, dt_fim))
+    # QUERY UNIFICADA: Agora todos os professores visualizam a grade completa para evitar conflitos
+    query_eventos = """
+        SELECT 
+            ev.id, ev.tipo_evento, ev.titulo, ev.data_evento, 
+            ev.horario_inicio, ev.horario_fim, ev.recorrencia, ev.id_sala,
+            string_agg(al.nome, ' & ') AS alunos_nomes, 
+            p.nome AS prof_nome, p.cor AS prof_cor
+        FROM eventos_agenda ev
+        LEFT JOIN evento_alunos ea ON ev.id = ea.id_evento
+        LEFT JOIN alunos al ON ea.id_aluno = al.id
+        LEFT JOIN professores p ON ev.id_professor = p.id
+        WHERE ev.data_evento BETWEEN %s AND %s OR ev.recorrencia != 'Nenhuma'
+        GROUP BY ev.id, p.nome, p.cor;
+    """
+    cursor.execute(query_eventos, (dt_inicio, dt_fim))
     else:
         query_eventos = """
             SELECT 
