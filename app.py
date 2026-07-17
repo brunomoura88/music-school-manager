@@ -244,14 +244,17 @@ def dashboard():
     cursor = conn.cursor()
 
     gestores_escola = ["Bruno Moura", "Bruno Mota", "Raphael Russowsky"]
+    professores_restritos = ["Beatriz", "Guilherme", "Lauro"] # <--- PADRONIZADO AQUI!
 
-    if nome_logado in gestores_escola:
-        cursor.execute("SELECT COUNT(*) AS total FROM alunos;")
-    else:
+    # Se for um professor restrito, conta apenas os alunos dele
+    if nome_logado in profesores_restritos:
         cursor.execute(
             "SELECT COUNT(*) AS total FROM alunos WHERE id_professor = %s;",
             (id_logado,),
         )
+    else:
+        cursor.execute("SELECT COUNT(*) AS total FROM alunos;")
+        
     res_alunos = cursor.fetchone()
     total_alunos = (
         res_alunos["total"]
