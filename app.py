@@ -146,8 +146,10 @@ def reset_professores():
         cursor.execute("INSERT INTO disciplinas (nome) VALUES ('Guitarra');")
         cursor.execute("INSERT INTO disciplinas (nome) VALUES ('Teclado');")
         cursor.execute("INSERT INTO disciplinas (nome) VALUES ('Canto');")
-        cursor.execute("INSERT INTO salas (nome) VALUES ('Sala 01');")
-        cursor.execute("INSERT INTO salas (nome) VALUES ('Sala 02');")
+        cursor.execute("INSERT INTO salas (nome) VALUES ('Sala Blues');")
+        cursor.execute("INSERT INTO salas (nome) VALUES ('Sala Clássica');")
+        cursor.execute("INSERT INTO salas (nome) VALUES ('Pop');")
+        cursor.execute("INSERT INTO salas (nome) VALUES ('Rock');")
         conn.commit()
         mensagem = "✅ SISTEMA RESETADO COM SUCESSO! Tabelas recriadas com suporte a endereço e cpf_rg."
     except Exception as e:
