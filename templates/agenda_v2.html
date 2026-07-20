@@ -230,8 +230,9 @@
                 <div class="col-md-4">
                     <label for="filtroSala" class="form-label fw-bold text-white">🏫 Visualizar Sala de Aula:</label>
                     <select id="filtroSala" class="form-select bg-dark text-white border-secondary">                        
-                        <option value="1">Sala 01</option>
-                        <option value="2">Sala 02</option>
+                        {% for s in salas %}
+                        <option value="{{ s.id }}">{{ s.nome }}</option>
+                        {% endfor %}
                     </select>
                 </div>
             </div>
@@ -297,8 +298,9 @@
                         <div class="mb-3" id="blocoSala">
                             <label for="id_sala" class="form-label small text-white-50">🏫 Sala Alocada para a Aula</label>
                             <select name="id_sala" id="id_sala" class="form-select bg-dark text-white border-secondary" required>
-                                <option value="1">Sala 01</option>
-                                <option value="2">Sala 02</option>
+                                {% for s in salas %}
+                                <option value="{{ s.id }}">{{ s.nome }}</option>
+                                {% endfor %}
                             </select>
                         </div>
 
@@ -393,7 +395,7 @@
                         var conteudoParenteses = partes[1].replace(")", "").trim();
                         
                         // Lista em minúsculo para evitar problemas com maiúsculas/minúsculas
-                        var instrumentosConhecidos = ["bateria", "violão", "guitarra", "canto", "piano", "teclado", "baixo", "musicalização"];
+                        var instrumentosConhecidos = ["bateria", "violão", "guitarra", "canto", "piano", "teclado", "baixo", "contrabaixo", "musicalização"];
                         
                         if (instrumentosConhecidos.includes(conteudoParenteses.toLowerCase())) {
                             nomeDisciplina = conteudoParenteses.charAt(0).toUpperCase() + conteudoParenteses.slice(1); // Deixa Bonito: "Bateria"
@@ -403,7 +405,7 @@
                         }
                     }
                     
-                    // Limpeza extra para quem tem o instrumento grudado no nome (Ex: "Eduardo guitarra")
+                    // Limpeza extra para quem tem o instrumento grudado no nome
                     if (nomeProf) {
                         var profLower = nomeProf.toLowerCase();
                         if (profLower.includes(" guitarra")) {
@@ -421,6 +423,9 @@
                         } else if (profLower.includes(" teclado")) {
                             nomeDisciplina = "Teclado";
                             nomeProf = nomeProf.replace(/ teclado/i, "");
+                        } else if (profLower.includes(" contrabaixo")) {
+                            nomeDisciplina = "Contrabaixo";
+                            nomeProf = nomeProf.replace(/ contrabaixo/i, "");
                         }
                     }
                     
@@ -432,6 +437,7 @@
                         else if (tituloLower.includes("violão")) nomeDisciplina = "Violão";
                         else if (tituloLower.includes("canto")) nomeDisciplina = "Canto";
                         else if (tituloLower.includes("teclado")) nomeDisciplina = "Teclado";
+                        else if (tituloLower.includes("contrabaixo")) nomeDisciplina = "Contrabaixo";
                     }
                     
                     // Se o nome do professor ficou vazio após a limpeza de histórico, define o padrão correto
