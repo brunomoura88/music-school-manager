@@ -832,6 +832,11 @@ def agenda():
     disciplinas_banco = cursor.fetchall()
     disciplinas = [{"id": r[0], "nome": r[1]} if not isinstance(r, dict) else r for r in disciplinas_banco]
 
+    # PUXA AS SALAS ATUALIZADAS DO BANCO
+    cursor.execute("SELECT id, nome FROM salas ORDER BY id;")
+    salas_banco = cursor.fetchall()
+    salas = [{"id": r[0], "nome": r[1]} if not isinstance(r, dict) else r for r in salas_banco]
+
     cursor.close()
     conn.close()
 
@@ -840,6 +845,7 @@ def agenda():
         professores=professores, 
         alunos=alunos, 
         disciplinas=disciplinas,
+        salas=salas, # <--- ENVIANDO AS SALAS PARA A TELA
         nome_professor=session.get("professor_nome", "Professor")
     )
 
