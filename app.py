@@ -115,7 +115,7 @@ def reset_professores():
         real_type = "NUMERIC(10,2)" if is_postgres else "REAL"
 
         cursor.execute(
-            f"CREATE TABLE professores (id {id_auto}, nome {text_type} NOT NULL, cpf {text_type} UNIQUE NOT NULL, login {text_type} UNIQUE NOT NULL, senha {text_type} NOT NULL);"
+            f"CREATE TABLE professores (id {id_auto}, nome {text_type} NOT NULL, cpf {text_type} UNIQUE NOT NULL, login {text_type} UNIQUE NOT NULL, senha {text_type} NOT NULL, cor {text_type}, chave_pix {text_type});"
         )
         cursor.execute(
             f"CREATE TABLE disciplinas (id {id_auto}, nome {text_type} UNIQUE NOT NULL);"
