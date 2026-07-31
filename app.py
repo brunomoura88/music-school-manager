@@ -246,7 +246,7 @@ def dashboard():
     cursor = conn.cursor()
 
     gestores_escola = ["Bruno Moura", "Bruno Mota", "Raphael Russowsky"]
-    professores_restritos = ["Beatriz", "Guilherme", "Lauro"]
+    professores_restritos = ["Beatriz", "Guilherme", "Lauro", "Cassio"]
 
     # Se for um professor restrito, conta apenas os alunos dele (Corrigido para professores_restritos)
     if nome_logado in professores_restritos:
