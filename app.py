@@ -329,12 +329,13 @@ def alunos():
             else request.form.get("cpf")
         )
         endereco = request.form.get("endereco", "")
+        telefone = request.form.get("telefone", "") # <--- CAPTURA O TELEFONE
         id_professor_vinc = request.form.get("id_professor", id_logado)
 
         cursor.execute(
             """
-            INSERT INTO alunos (nome, id_disciplina, valor_mensalidade, id_professor, cpf_rg, vencimento_mensalidade, endereco)
-            VALUES (%s, %s, %s, %s, %s, %s, %s);
+            INSERT INTO alunos (nome, id_disciplina, valor_mensalidade, id_professor, cpf_rg, vencimento_mensalidade, endereco, telefone)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s);
         """,
             (
                 nome,
@@ -344,6 +345,7 @@ def alunos():
                 cpf_rg,
                 dia_vencimento,
                 endereco,
+                telefone,
             ),
         )
         conn.commit()
