@@ -1178,6 +1178,156 @@ def api_eventos_excluir(id_evento):
     # Redireciona de volta para a página da agenda v2 para atualizar a tela no automático
     return redirect("/agenda")
 
+# ==============================================================================
+# 🤖 INTEGRAÇÃO WHATSAPP & IA (GEMINI) + COBRANÇA AUTOMÁTICA VIA PIX
+# ==============================================================================
+
+@app.route("/api/whatsapp/webhook", methods=["POST"])
+def whatsapp_webhook():
+    """
+    Recebe as mensagens do WhatsApp via Evolution API, 
+    processa a dúvida usando a API do Gemini e responde automaticamente.
+    """
+    dados = request.get_json(silent=True) or {}
+    
+    # Extrai o número do remetente e o texto da mensagem
+    # (Estrutura padrão da Evolution API v2)
+    try:
+        remote_jid = dados.get("data", {}).get("key", {}).get("remoteJid", "")
+        mensagem_texto = dados.get("data", {}).get("message", {}).get("conversation", "")
+        
+        if not mensagem_texto:
+            mensagem_texto = dados.get("data", {}).get("message", {}).get("extendedTextMessage", {}).get("text", "")
+            
+        from_me = dados.get("data", {}).get("key", {}).get("fromMe", False)
+
+        # Evita responder mensagens enviadas pelo próprio número da escola
+        if from_me or not remote_jid or not mensagem_texto:
+            return jsonify({"status": "ignored"}), 200
+
+        # Limpa o número para envio
+        numero_whatsapp = remote_jid.split("@")[0]
+
+        # 🧠 CONSULTA AO GEMINI COM SYSTEM PROMPT PERSONALIZADO
+        gemini_api_key = os.environ.get("GEMINI_API_KEY")
+        if gemini_api_key:
+            from google import genai
+            client = genai.Client(api_key=gemini_api_key)
+
+            system_prompt = (
+                "Você é a assistente virtual do Estúdio A, uma escola de música de alta qualidade. "
+                "Responda às dúvidas de forma acolhedora, profissional e concisa. "
+                "Informações da Escola:\n"
+                "- Valor Padrão da Mensalidade: R$ 220,00/mês.\n"
+                "- Cursos disponíveis: Violão, Guitarra, Bateria, Canto, Teclado e Contrabaixo.\n"
+                "- Professores: Bruno Moura, Bruno Mota, Raphael Russowsky, Guilherme Martins, Beatriz Ribeiro, Lauro e Cássio.\n"
+                "- Infraestrutura: Contamos com 4 salas temáticas personalizadas: Sala Blues, Sala Clássica, Sala Pop e Sala Rock.\n"
+                "- Oferecemos aulas experimentais. Sempre convide o interessado para agendar uma visita ou aula experimental.\n"
+                "Se a pessoa solicitar a tabela de preços detalhada ou apresentação, mencione que podemos enviar o PDF explicativo."
+            )
+
+            prompt_completo = f"{system_prompt}\n\nCliente perguntou: '{mensagem_texto}'\nSua resposta:"
+            
+            response = client.models.generate_content(
+                model="gemini-2.5-flash",
+                contents=prompt_completo,
+            )
+            resposta_ia = response.text
+        else:
+            resposta_ia = "Olá! Obrigado por entrar em contato com o Estúdio A. Em breve um de nossos atendentes irá responder você!"
+
+        # Retorna a resposta para o Webhook consumir
+        return jsonify({
+            "status": "success",
+            "numero": numero_whatsapp,
+            "resposta": resposta_ia
+        }), 200
+
+    except Exception as e:
+        print(f"❌ Erro no processamento do Webhook do WhatsApp: {e}")
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+
+@app.route("/api/whatsapp/cobrar-mensalidades", methods=["GET", "POST"])
+def cobrar_mensalidades_automático():
+    """
+    Varre os alunos devendo no Supabase e gera as mensagens de cobrança 
+    com o Pix individualizado do professor responsável.
+    """
+    # Trava de segurança: apenas requisição autorizada ou do gestor
+    if "professor_id" not in session and request.args.get("token") != app.secret_key:
+        return jsonify({"erro": "Acesso não autorizado"}), 403
+
+    conn = obter_conexao()
+    cursor = conn.cursor()
+
+    dia_hoje = datetime.now().day
+    competencia_atual = datetime.now().strftime("%m/%Y")
+
+    # Busca mensalidades pendentes ou que vencem hoje com os dados do aluno e a chave Pix do professor
+    query_cobrança = """
+        SELECT 
+            al.nome AS aluno_nome, 
+            al.telefone AS aluno_telefone, 
+            al.vencimento_mensalidade, 
+            m.valor_devido, 
+            p.nome AS professor_nome, 
+            p.chave_pix AS professor_pix,
+            d.nome AS disciplina_nome
+        FROM mensalidades m
+        JOIN alunos al ON m.id_aluno = al.id
+        LEFT JOIN professores p ON al.id_professor = p.id
+        LEFT JOIN disciplinas d ON al.id_disciplina = d.id
+        WHERE m.competencia = %s AND m.status != 'Pago';
+    """
+    cursor.execute(query_cobrança, (competencia_atual,))
+    resultados = cursor.fetchall()
+
+    mensagens_geradas = []
+
+    for row in resultados:
+        if isinstance(row, dict):
+            aluno_nome = row.get("aluno_nome")
+            telefone = row.get("aluno_telefone")
+            vencimento = str(row.get("vencimento_mensalidade", "")).strip()
+            valor = row.get("valor_devido") or 220.00
+            prof_nome = row.get("professor_nome") or "Estúdio A"
+            prof_pix = row.get("professor_pix") or "Chave Pix não cadastrada"
+            disciplina = row.get("disciplina_nome") or "Música"
+        else:
+            aluno_nome, telefone, vencimento, valor, prof_nome, prof_pix, disciplina = row[0], row[1], str(row[2]).strip(), row[3] or 220.00, row[4] or "Estúdio A", row[5] or "Chave Pix não cadastrada", row[6] or "Música"
+
+        # Verifica se o vencimento é hoje ou se já passou do dia
+        try:
+            venc_int = int(vencimento)
+            if dia_hoje >= venc_int:
+                texto_msg = (
+                    f"Olá, {aluno_nome}! Tudo bem? 🎵\n\n"
+                    f"Lembramos que a sua mensalidade de *{disciplina}* no Estúdio A referente a este mês está disponível para pagamento.\n\n"
+                    f"💰 *Valor:* R$ {valor:.2f}\n"
+                    f"👤 *Professor:* {prof_nome}\n"
+                    f"🔑 *Chave Pix para Pagamento:* `{prof_pix}`\n\n"
+                    f"Após realizar o pagamento, você pode nos enviar o comprovante por aqui. Qualquer dúvida estamos à disposição!"
+                )
+                
+                mensagens_geradas.append({
+                    "aluno": aluno_nome,
+                    "telefone": telefone,
+                    "mensagem": texto_msg,
+                    "chave_pix_usada": prof_pix
+                })
+        except ValueError:
+            continue
+
+    cursor.close()
+    conn.close()
+
+    return jsonify({
+        "status": "sucesso",
+        "total_cobrancas_geradas": len(mensagens_geradas),
+        "cobrancas": mensagens_geradas
+    }), 200
+
 if __name__ == "__main__":
     porta = int(os.environ.get("PORT", 5000))
     app.run(host="0.0.0.0", port=porta)
