@@ -475,17 +475,19 @@ def editar_aluno(id):
         nome = request.form.get("nome")
         cpf_rg = request.form.get("cpf")
         endereco = request.form.get("endereco")
+        telefone = request.form.get("telefone", "")  # <--- CAPTURA O TELEFONE
         dia_vencimento = request.form.get("dia_vencimento")
         valor_mensalidade = request.form.get("valor")
         id_disciplina = request.form.get("id_disciplina")
         id_professor = request.form.get("id_professor")
 
         cursor.execute(
-            "UPDATE alunos SET nome=%s, cpf_rg=%s, endereco=%s, vencimento_mensalidade=%s, valor_mensalidade=%s, id_disciplina=%s, id_professor=%s WHERE id=%s;",
+            "UPDATE alunos SET nome=%s, cpf_rg=%s, endereco=%s, telefone=%s, vencimento_mensalidade=%s, valor_mensalidade=%s, id_disciplina=%s, id_professor=%s WHERE id=%s;",
             (
                 nome,
                 cpf_rg,
                 endereco,
+                telefone,  # <--- INCLUI NO UPDATE
                 dia_vencimento,
                 valor_mensalidade,
                 id_disciplina,
@@ -497,7 +499,6 @@ def editar_aluno(id):
         cursor.close()
         conn.close()
         return redirect("/alunos")
-
     cursor.execute(
         "SELECT id, nome, cpf_rg, endereco, vencimento_mensalidade, valor_mensalidade, id_disciplina, id_professor FROM alunos WHERE id=%s;",
         (id,),
