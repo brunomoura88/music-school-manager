@@ -500,7 +500,7 @@ def editar_aluno(id):
         conn.close()
         return redirect("/alunos")
     cursor.execute(
-        "SELECT id, nome, cpf_rg, endereco, vencimento_mensalidade, valor_mensalidade, id_disciplina, id_professor FROM alunos WHERE id=%s;",
+        "SELECT id, nome, cpf_rg, endereco, vencimento_mensalidade, valor_mensalidade, id_disciplina, id_professor, telefone FROM alunos WHERE id=%s;",
         (id,),
     )
     res = cursor.fetchone()
@@ -515,6 +515,7 @@ def editar_aluno(id):
             "nome": res.get("nome"),
             "cpf_rg": res.get("cpf_rg") if res.get("cpf_rg") else "",
             "endereco": res.get("endereco") if res.get("endereco") else "",
+            "telefone": res.get("telefone") if res.get("telefone") else "",  # <--- PUXA O TELEFONE
             "vencimento_mensalidade": res.get("vencimento_mensalidade"),
             "valor_mensalidade": res.get("valor_mensalidade"),
             "id_disciplina": res.get("id_disciplina"),
@@ -530,8 +531,8 @@ def editar_aluno(id):
             "valor_mensalidade": res[5],
             "id_disciplina": res[6],
             "id_professor": res[7],
+            "telefone": res[8] if len(res) > 8 and res[8] else "",  # <--- PUXA O TELEFONE (TUPLE)
         }
-
     cursor.execute("SELECT id, nome FROM disciplinas ORDER BY nome;")
     disciplinas_lista = [
         d if hasattr(d, "get") else {"id": d[0], "nome": d[1]}
