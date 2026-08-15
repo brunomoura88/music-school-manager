@@ -8,89 +8,119 @@
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
     <style>
         body {
-            background-color: #121212;
+            background-color: #0b0b0b;
+            background-image: url("{{ url_for('static', filename='img/fundosistema.png') }}");
+            background-size: cover;
+            background-position: center;
+            background-repeat: no-repeat;
+            background-attachment: fixed;
             color: #ffffff;
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             min-height: 100vh;
             display: flex;
             flex-direction: column;
         }
-        /* Logo Maior e Alinhado */
+
+        /* Navbar transparente */
         .navbar-brand img {
-            max-height: 55px; /* Aumentado para dar destaque */
-            filter: drop-shadow(0px 0px 8px rgba(255,255,255,0.2));
+            max-height: 55px;
+            filter: drop-shadow(0px 0px 8px rgba(255, 255, 255, 0.2));
         }
+
         .main-container {
             flex: 1;
             display: flex;
             flex-direction: column;
-            justify-content: center; /* Centraliza verticalmente o conteúdo na tela */
-            padding-bottom: 80px;
+            justify-content: center;
+            padding-bottom: 60px;
         }
-        /* Cards Principais Estilizados */
+
+        /* Cards Principais com fundo translúcido e borda em degradê */
         .card-menu {
-            background: linear-gradient(145deg, #1e1e1e, #151515);
-            border: 1px solid #2a2a2a;
-            border-left: 4px solid #800020; /* Detalhe em Bordô */
-            border-radius: 12px;
-            transition: all 0.3s ease;
+            background: rgba(18, 18, 18, 0.72);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-left: 4px solid #b30000;
+            border-radius: 14px;
+            transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
             text-decoration: none;
-            color: white;
+            color: #ffffff;
             display: flex;
             flex-direction: column;
             align-items: center;
             justify-content: center;
             padding: 40px 20px;
             height: 220px;
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.4);
         }
+
         .card-menu:hover {
             transform: translateY(-8px);
-            border-color: #d4af37; /* Transição para o Dourado no hover */
-            box-shadow: 0 10px 20px rgba(128, 0, 32, 0.3);
-            color: #d4af37;
+            border-color: #e60000;
+            box-shadow: 0 12px 28px rgba(179, 0, 0, 0.35);
+            color: #ffffff;
         }
+
         .card-menu i {
             font-size: 3rem;
             margin-bottom: 15px;
+            transition: transform 0.3s ease;
         }
+
+        .card-menu:hover i {
+            transform: scale(1.1);
+        }
+
         .card-menu h3 {
-            font-size: 1.4rem;
+            font-size: 1.35rem;
             font-weight: 600;
             margin: 0;
+            letter-spacing: 0.5px;
         }
-        /* Painel de Resumos Inferior */
+
+        /* Painel de Resumos Inferior translúcido */
         .resumo-painel {
-            background-color: #1a1a1a;
-            border: 1px solid #252525;
-            border-radius: 10px;
-            padding: 20px;
-            margin-top: 50px;
+            background: rgba(18, 18, 18, 0.75);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 12px;
+            padding: 22px;
+            margin-top: 45px;
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.4);
         }
+
         .resumo-item h5 {
-            color: #aaa;
-            font-size: 0.9rem;
+            color: #b0b0b0;
+            font-size: 0.85rem;
             text-transform: uppercase;
             letter-spacing: 1px;
+            margin-bottom: 8px;
         }
+
         .resumo-item p {
-            font-size: 1.8rem;
-            font-weight: bold;
-            color: #d4af37;
+            font-size: 1.85rem;
+            font-weight: 700;
+            color: #e6b800;
             margin: 0;
         }
-        /* Rodapé / Marca d'Água */
+
+        /* Rodapé com leve transparência */
         footer {
-            background-color: #0b0b0b;
-            border-top: 1px solid #1a1a1a;
-            color: #555;
+            background-color: rgba(10, 10, 10, 0.85);
+            backdrop-filter: blur(6px);
+            border-top: 1px solid rgba(255, 255, 255, 0.05);
+            color: #666;
             font-size: 13px;
             text-align: center;
             padding: 15px 0;
             margin-top: auto;
             letter-spacing: 0.5px;
         }
+
         footer span {
-            color: #800020;
+            color: #b30000;
             font-weight: bold;
         }
     </style>
@@ -99,26 +129,25 @@
 
     <nav class="navbar navbar-dark bg-transparent px-4 py-3">
         <div class="container-fluid d-flex align-items-center justify-content-between">
-            
             <a class="navbar-brand p-0" href="/dashboard">
-                <img src="/static/img/logo.png" alt="Estúdio A" height="40" style="object-fit: contain" />
+                <img src="{{ url_for('static', filename='img/logo.png') }}" alt="Estúdio A" height="40" style="object-fit: contain" />
             </a>
             
             <div class="d-flex align-items-center gap-3">
-                <div class="text-white-50 small fw-bold d-flex align-items-center bg-dark px-3 py-2 rounded border border-secondary" style="font-size: 13px;">
+                <div class="text-white-50 small fw-bold d-flex align-items-center bg-dark bg-opacity-75 px-3 py-2 rounded border border-secondary" style="font-size: 13px;">
                     <i class="bi bi-person-circle text-warning me-2" style="font-size: 16px;"></i>
                     Olá, <span class="text-white ms-1">{{ nome_professor }}</span>
                 </div>          
                 <a href="/logout" class="btn btn-outline-danger btn-sm px-3 fw-bold">Sair</a>
             </div>
-
-        </div> </nav>
+        </div>
+    </nav>
 
     <div class="container main-container">
         
         <div class="text-center mb-5">
             <h1 class="fw-light">Bem-vindo ao Sistema!</h1>
-            <p class="text-muted">Selecione o módulo que deseja gerenciar hoje.</p>
+            <p class="text-white-50">Selecione o módulo que deseja gerenciar hoje.</p>
         </div>
 
         <div class="row g-4 justify-content-center">
@@ -144,11 +173,11 @@
 
         <div class="resumo-painel shadow-lg">
             <div class="row text-center">
-                <div class="col-md-4 border-end border-secondary resumo-item">
+                <div class="col-md-4 border-end border-secondary border-opacity-50 resumo-item">
                     <h5><i class="bi bi-people me-2"></i>Alunos Ativos</h5>
                     <p>{{ total_alunos }}</p> 
                 </div>
-                <div class="col-md-4 border-end border-secondary resumo-item">
+                <div class="col-md-4 border-end border-secondary border-opacity-50 resumo-item">
                     <h5><i class="bi bi-clock-history me-2"></i>Aulas Hoje</h5>
                     <p>{{ status_aulas_hoje if aulas_hoje == 0 else aulas_hoje }}</p> 
                 </div>
