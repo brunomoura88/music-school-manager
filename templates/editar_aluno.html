@@ -3,20 +3,60 @@
 <head>
     <link rel="icon" type="image/png" href="{{ url_for('static', filename='img/favicon.png') }}">
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Estúdio A - Editar Aluno</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@v5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
     <style>
-        body { background-color: #121212; color: white; font-family: sans-serif; }
-        .painel-cadastro { background-color: #1a1a1a; border: 1px solid #2a2a2a; border-radius: 12px; padding: 30px; max-width: 600px; margin: 50px auto; }
-        .form-control, .form-select { background-color: #252525; border: 1px solid #333; color: white; }
-        .form-control:focus, .form-select:focus { background-color: #303030; border-color: #800020; color: white; box-shadow: none; }
-        .btn-bordor { background-color: #800020; color: white; font-weight: bold; }
-        .btn-bordor:hover { background-color: #600018; color: white; }
+        body { 
+            background-color: #0b0b0b; 
+            background-image: url("{{ url_for('static', filename='img/fundosistema.png') }}");
+            background-size: cover;
+            background-position: center;
+            background-repeat: no-repeat;
+            background-attachment: fixed;
+            color: white; 
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            min-height: 100vh;
+        }
+        .painel-cadastro { 
+            background-color: rgba(24, 24, 24, 0.85); 
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.08); 
+            border-radius: 12px; 
+            padding: 30px; 
+            max-width: 600px; 
+            margin: 50px auto; 
+            box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+        }
+        .form-control, .form-select { 
+            background-color: #252525; 
+            border: 1px solid #3d3d3d; 
+            color: white; 
+        }
+        .form-control:focus, .form-select:focus { 
+            background-color: #303030; 
+            border-color: #800020; 
+            color: white; 
+            box-shadow: 0 0 0 0.25rem rgba(128, 0, 32, 0.25); 
+        }
+        .btn-bordor { 
+            background-color: #800020; 
+            color: white; 
+            font-weight: bold; 
+            border: none;
+            transition: background 0.3s;
+        }
+        .btn-bordor:hover { 
+            background-color: #a00028; 
+            color: white; 
+        }
     </style>
 </head>
 <body>
 
-    <div class="container">
+    <div class="container pb-5">
         <div class="painel-cadastro shadow-lg">
             <h3 class="text-warning mb-4"><i class="bi bi-pencil-square me-2"></i>EDITAR ALUNO</h3>
             
@@ -25,6 +65,14 @@
                 <div class="mb-3">
                     <label class="form-label">Nome Completo</label>
                     <input type="text" name="nome" class="form-control" value="{{ aluno.nome }}" required>
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label text-warning fw-bold">Status da Matrícula</label>
+                    <select name="status" class="form-select" required>
+                        <option value="Ativo" {% if aluno.status == 'Ativo' or not aluno.status %} selected {% endif %}>🟢 Ativo (Em Aulas / Cobrança)</option>
+                        <option value="Pré-cadastro" {% if aluno.status == 'Pré-cadastro' %} selected {% endif %}>🟡 Pré-cadastro (Reserva de Vaga)</option>
+                    </select>
                 </div>
 
                 <div class="mb-3">
@@ -39,7 +87,7 @@
 
                 <div class="mb-3">
                     <label class="form-label text-light small">Telefone / WhatsApp</label>
-                    <input type="text" class="form-control" name="telefone" value="{{ aluno.telefone }}" placeholder="(51) 99999-9999">
+                    <input type="text" class="form-control" name="telefone" value="{{ aluno.telefone if aluno.telefone else '' }}" placeholder="(51) 99999-9999">
                 </div>
 
                 <div class="row">
