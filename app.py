@@ -124,7 +124,7 @@ def reset_professores():
             f"CREATE TABLE salas (id {id_auto}, nome {text_type} UNIQUE NOT NULL);"
         )
         cursor.execute(
-            f"CREATE TABLE alunos (id {id_auto}, nome {text_type} NOT NULL, cpf_rg {text_type}, vencimento_mensalidade {text_type}, valor_mensalidade {real_type}, id_disciplina INTEGER, id_professor INTEGER, endereco {text_type});"
+            f"CREATE TABLE alunos (id {id_auto}, nome {text_type} NOT NULL, cpf_rg {text_type}, vencimento_mensalidade {text_type}, valor_mensalidade {real_type}, id_disciplina INTEGER, id_professor INTEGER, endereco {text_type}, telefone {text_type}, status {text_type} DEFAULT 'Ativo');"
         )
         cursor.execute(
             f"CREATE TABLE agenda (id {id_auto}, dia_semana {text_type} NOT NULL, horario {text_type} NOT NULL, id_professor INTEGER, id_aluno INTEGER, tipo_aula {text_type} DEFAULT 'Regular', data_aula {text_type}, id_sala INTEGER DEFAULT 1);"
@@ -151,7 +151,7 @@ def reset_professores():
         cursor.execute("INSERT INTO salas (nome) VALUES ('Sala Pop');")
         cursor.execute("INSERT INTO salas (nome) VALUES ('Sala Rock');")
         conn.commit()
-        mensagem = "✅ SISTEMA RESETADO COM SUCESSO! Tabelas recriadas com suporte a endereço e cpf_rg."
+        mensagem = "✅ SISTEMA RESETADO COM SUCESSO! Tabelas recriadas."
     except Exception as e:
         mensagem = f"❌ Erro na reestruturação: {str(e)}"
     finally:
@@ -248,14 +248,14 @@ def dashboard():
     gestores_escola = ["Bruno Moura", "Bruno Mota", "Raphael Russowsky"]
     professores_restritos = ["Beatriz", "Guilherme", "Lauro", "Cassio"]
 
-    # Se for um professor restrito, conta apenas os alunos dele (Corrigido para professores_restritos)
+    # Conta apenas alunos ATIVOS no dashboard
     if nome_logado in professores_restritos:
         cursor.execute(
-            "SELECT COUNT(*) AS total FROM alunos WHERE id_professor = %s;",
+            "SELECT COUNT(*) AS total FROM alunos WHERE id_professor = %s AND status = 'Ativo';",
             (id_logado,),
         )
     else:
-        cursor.execute("SELECT COUNT(*) AS total FROM alunos;")
+        cursor.execute("SELECT COUNT(*) AS total FROM alunos WHERE status = 'Ativo';")
         
     res_alunos = cursor.fetchone()
     total_alunos = (
@@ -329,13 +329,14 @@ def alunos():
             else request.form.get("cpf")
         )
         endereco = request.form.get("endereco", "")
-        telefone = request.form.get("telefone", "") # <--- CAPTURA O TELEFONE
+        telefone = request.form.get("telefone", "")
+        status = request.form.get("status", "Ativo")
         id_professor_vinc = request.form.get("id_professor", id_logado)
 
         cursor.execute(
             """
-            INSERT INTO alunos (nome, id_disciplina, valor_mensalidade, id_professor, cpf_rg, vencimento_mensalidade, endereco, telefone)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s);
+            INSERT INTO alunos (nome, id_disciplina, valor_mensalidade, id_professor, cpf_rg, vencimento_mensalidade, endereco, telefone, status)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s);
         """,
             (
                 nome,
@@ -346,6 +347,7 @@ def alunos():
                 dia_vencimento,
                 endereco,
                 telefone,
+                status,
             ),
         )
         conn.commit()
@@ -355,11 +357,11 @@ def alunos():
 
     if nome_logado in ["Bruno Moura", "Bruno Mota", "Raphael Russowsky"]:
         cursor.execute(
-            "SELECT al.id, al.nome as aluno_nome, al.vencimento_mensalidade, al.valor_mensalidade, p.nome as prof_nome, d.nome as disc_nome FROM alunos al LEFT JOIN disciplinas d ON al.id_disciplina = d.id LEFT JOIN professores p ON al.id_professor = p.id ORDER BY al.id DESC;"
+            "SELECT al.id, al.nome as aluno_nome, al.vencimento_mensalidade, al.valor_mensalidade, p.nome as prof_nome, d.nome as disc_nome, al.status FROM alunos al LEFT JOIN disciplinas d ON al.id_disciplina = d.id LEFT JOIN professores p ON al.id_professor = p.id ORDER BY al.id DESC;"
         )
     else:
         cursor.execute(
-            "SELECT al.id, al.nome as aluno_nome, al.vencimento_mensalidade, al.valor_mensalidade, p.nome as prof_nome, d.nome as disc_nome FROM alunos al LEFT JOIN disciplinas d ON al.id_disciplina = d.id LEFT JOIN professores p ON al.id_professor = p.id WHERE al.id_professor = %s ORDER BY al.id DESC;",
+            "SELECT al.id, al.nome as aluno_nome, al.vencimento_mensalidade, al.valor_mensalidade, p.nome as prof_nome, d.nome as disc_nome, al.status FROM alunos al LEFT JOIN disciplinas d ON al.id_disciplina = d.id LEFT JOIN professores p ON al.id_professor = p.id WHERE al.id_professor = %s ORDER BY al.id DESC;",
             (id_logado,),
         )
 
@@ -374,6 +376,7 @@ def alunos():
                     "valor_mensalidade": r.get("valor_mensalidade"),
                     "professor_nome": r.get("prof_nome"),
                     "disciplina_nome": r.get("disc_nome"),
+                    "status": r.get("status") if r.get("status") else "Ativo",
                 }
             )
         else:
@@ -385,6 +388,7 @@ def alunos():
                     "valor_mensalidade": r[3],
                     "professor_nome": r[4],
                     "disciplina_nome": r[5],
+                    "status": r[6] if len(r) > 6 and r[6] else "Ativo",
                 }
             )
 
@@ -423,8 +427,9 @@ def contrato(id):
             al.endereco, 
             al.vencimento_mensalidade, 
             al.valor_mensalidade,
-            p.nome AS professor_nome,
-            d.nome AS disciplina_nome
+            p.nome AS professor_nome, 
+            d.nome AS disciplina_nome,
+            al.status
         FROM alunos al
         LEFT JOIN professores p ON al.id_professor = p.id
         LEFT JOIN disciplinas d ON al.id_disciplina = d.id
@@ -444,7 +449,8 @@ def contrato(id):
             "vencimento_mensalidade": aluno_dados[4],
             "valor_mensalidade": aluno_dados[5],
             "professor_nome": aluno_dados[6],
-            "disciplina_nome": aluno_dados[7]
+            "disciplina_nome": aluno_dados[7],
+            "status": aluno_dados[8] if len(aluno_dados) > 8 else "Ativo"
         }
     else:
         cursor.close(); conn.close()
@@ -473,21 +479,23 @@ def editar_aluno(id):
 
     if request.method == "POST":
         nome = request.form.get("nome")
+        status = request.form.get("status", "Ativo")
         cpf_rg = request.form.get("cpf")
         endereco = request.form.get("endereco")
-        telefone = request.form.get("telefone", "")  # <--- CAPTURA O TELEFONE
+        telefone = request.form.get("telefone", "")
         dia_vencimento = request.form.get("dia_vencimento")
         valor_mensalidade = request.form.get("valor")
         id_disciplina = request.form.get("id_disciplina")
         id_professor = request.form.get("id_professor")
 
         cursor.execute(
-            "UPDATE alunos SET nome=%s, cpf_rg=%s, endereco=%s, telefone=%s, vencimento_mensalidade=%s, valor_mensalidade=%s, id_disciplina=%s, id_professor=%s WHERE id=%s;",
+            "UPDATE alunos SET nome=%s, status=%s, cpf_rg=%s, endereco=%s, telefone=%s, vencimento_mensalidade=%s, valor_mensalidade=%s, id_disciplina=%s, id_professor=%s WHERE id=%s;",
             (
                 nome,
+                status,
                 cpf_rg,
                 endereco,
-                telefone,  # <--- INCLUI NO UPDATE
+                telefone,
                 dia_vencimento,
                 valor_mensalidade,
                 id_disciplina,
@@ -500,7 +508,7 @@ def editar_aluno(id):
         conn.close()
         return redirect("/alunos")
     cursor.execute(
-        "SELECT id, nome, cpf_rg, endereco, vencimento_mensalidade, valor_mensalidade, id_disciplina, id_professor, telefone FROM alunos WHERE id=%s;",
+        "SELECT id, nome, cpf_rg, endereco, vencimento_mensalidade, valor_mensalidade, id_disciplina, id_professor, telefone, status FROM alunos WHERE id=%s;",
         (id,),
     )
     res = cursor.fetchone()
@@ -515,7 +523,8 @@ def editar_aluno(id):
             "nome": res.get("nome"),
             "cpf_rg": res.get("cpf_rg") if res.get("cpf_rg") else "",
             "endereco": res.get("endereco") if res.get("endereco") else "",
-            "telefone": res.get("telefone") if res.get("telefone") else "",  # <--- PUXA O TELEFONE
+            "telefone": res.get("telefone") if res.get("telefone") else "",
+            "status": res.get("status") if res.get("status") else "Ativo",
             "vencimento_mensalidade": res.get("vencimento_mensalidade"),
             "valor_mensalidade": res.get("valor_mensalidade"),
             "id_disciplina": res.get("id_disciplina"),
@@ -531,7 +540,8 @@ def editar_aluno(id):
             "valor_mensalidade": res[5],
             "id_disciplina": res[6],
             "id_professor": res[7],
-            "telefone": res[8] if len(res) > 8 and res[8] else "",  # <--- PUXA O TELEFONE (TUPLE)
+            "telefone": res[8] if len(res) > 8 and res[8] else "",
+            "status": res[9] if len(res) > 9 and res[9] else "Ativo",
         }
     cursor.execute("SELECT id, nome FROM disciplinas ORDER BY nome;")
     disciplinas_lista = [
@@ -690,17 +700,16 @@ def pagar_mensalidade(id_mensalidade):
     conn.close()
     return redirect("/financeiro")
 
+
 @app.route("/api/eventos")
 def api_eventos():
     if "professor_id" not in session:
         return jsonify([]), 401
         
     nome_logado = session.get("professor_nome", "")
-    gestores_escola = ["Bruno Moura", "Bruno Mota", "Raphael Russowsky"]
-
     data_inicio_str = request.args.get("start")
     data_fim_str = request.args.get("end")
-    sala_filtrada = request.args.get("sala") # Captura o filtro de sala vindo da tela
+    sala_filtrada = request.args.get("sala")
 
     if not data_inicio_str or not data_fim_str:
         return jsonify([]), 400
@@ -711,8 +720,6 @@ def api_eventos():
     conn = obter_conexao()
     cursor = conn.cursor()
 
-    # Query trazendo o id_sala e a cor do professor
-    # QUERY UNIFICADA: Agora todos os professores visualizam a grade completa para evitar conflitos
     query_eventos = """
         SELECT 
             ev.id, ev.tipo_evento, ev.titulo, ev.data_evento, 
@@ -750,8 +757,6 @@ def api_eventos():
             p_nome = row[9] if len(row) > 9 else ""
             p_cor = row[10] if len(row) > 10 else ""
 
-        # FILTRO DE SALA DINÂMICO
-        # Se o usuário escolheu uma sala específica no topo da página, ignoramos as outras
         if sala_filtrada and str(id_sala_banco) != str(sala_filtrada):
             continue
 
@@ -765,7 +770,6 @@ def api_eventos():
         elif tipo == "Bloqueio":
             titulo_bloco = titulo if titulo else "Bloqueio de Horário"
 
-        # LÓGICA DE CORES: Puxa a cor do banco, mas respeita cinza para bloqueio e vermelho para feriado
         cor_final = p_cor if p_cor else "#28a745"
         if tipo == "Bloqueio": cor_final = "#6c757d"
         if tipo == "Feriado": cor_final = "#dc3545"
@@ -799,7 +803,7 @@ def api_eventos():
                     semanas_passadas = (curr_date - data_base_diarista).days // 7
                     if semanas_passadas % 2 == 0:
                         ev_clone = evento_template.copy()
-                        ev_clone["id"] = f"rec-{ev_id}-{curr_date.isoformat()}",
+                        ev_clone["id"] = f"rec-{ev_id}-{curr_date.isoformat()}"
                         ev_clone["start"] = f"{curr_date.isoformat()}T{h_ini_str}"
                         ev_clone["end"] = f"{curr_date.isoformat()}T{h_fim_str}"
                         eventos_js.append(ev_clone)
@@ -815,6 +819,7 @@ def api_eventos():
     cursor.close()
     conn.close()
     return jsonify(eventos_js)
+
 
 @app.route("/agenda")
 def agenda():
@@ -836,7 +841,6 @@ def agenda():
     disciplinas_banco = cursor.fetchall()
     disciplinas = [{"id": r[0], "nome": r[1]} if not isinstance(r, dict) else r for r in disciplinas_banco]
 
-    # PUXA AS SALAS ATUALIZADAS DO BANCO
     cursor.execute("SELECT id, nome FROM salas ORDER BY id;")
     salas_banco = cursor.fetchall()
     salas = [{"id": r[0], "nome": r[1]} if not isinstance(r, dict) else r for r in salas_banco]
@@ -849,7 +853,7 @@ def agenda():
         professores=professores, 
         alunos=alunos, 
         disciplinas=disciplinas,
-        salas=salas, # <--- ENVIANDO AS SALAS PARA A TELA
+        salas=salas,
         nome_professor=session.get("professor_nome", "Professor")
     )
 
@@ -871,8 +875,9 @@ def financeiro():
         conn.commit()
     except Exception: pass
 
+    # Gera pendências apenas para alunos com status = 'Ativo'
     if competencia_atual == datetime.now().strftime("%m/%Y"):
-        cursor.execute("SELECT id, valor_mensalidade FROM alunos;")
+        cursor.execute("SELECT id, valor_mensalidade FROM alunos WHERE status = 'Ativo' OR status IS NULL;")
         for aluno in cursor.fetchall():
             id_aluno, valor = (aluno["id"], aluno["valor_mensalidade"]) if isinstance(aluno, dict) else (aluno[0], aluno[1])
             if valor is None: valor = 0.0
@@ -897,7 +902,7 @@ def financeiro():
             JOIN alunos al ON m.id_aluno = al.id 
             LEFT JOIN disciplinas d ON al.id_disciplina = d.id 
             LEFT JOIN professores p ON al.id_professor = p.id
-            WHERE m.competencia = %s;
+            WHERE m.competencia = %s AND (al.status = 'Ativo' OR al.status IS NULL);
         """, (competencia_atual,))
     else:
         cursor.execute("""
@@ -906,7 +911,7 @@ def financeiro():
             JOIN alunos al ON m.id_aluno = al.id 
             LEFT JOIN disciplinas d ON al.id_disciplina = d.id 
             LEFT JOIN professores p ON al.id_professor = p.id
-            WHERE m.competencia = %s AND al.id_professor = %s;
+            WHERE m.competencia = %s AND al.id_professor = %s AND (al.status = 'Ativo' OR al.status IS NULL);
         """, (competencia_atual, session["professor_id"]))
 
     dia_hoje = datetime.now().day
@@ -998,7 +1003,7 @@ def api_eventos_salvar():
     id_professor = request.form.get("id_professor")
     id_disciplina = request.form.get("id_disciplina")
     recorrencia = request.form.get("recorrencia", "Nenhuma")
-    id_sala = request.form.get("id_sala", 1) # Captura a sala vinda do Modal
+    id_sala = request.form.get("id_sala", 1)
 
     alunos_ids = request.form.getlist("alunos_ids")
 
@@ -1011,7 +1016,6 @@ def api_eventos_salvar():
     cursor = conn.cursor()
 
     try:
-        # Query atualizada incluindo id_sala
         query_evento = """
             INSERT INTO eventos_agenda (titulo, descricao, data_evento, horario_inicio, horario_fim, id_professor, id_disciplina, tipo_evento, recorrencia, id_sala)
             VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s) RETURNING id;
@@ -1046,15 +1050,12 @@ def api_eventos_salvar():
 
 @app.route("/migrar-agenda")
 def migrar_agenda():
-    # Trava de segurança: apenas o gestor logado pode rodar a migração
     if "professor_id" not in session or session.get("professor_nome") != "Bruno Moura":
         return "<h3>❌ Acesso não autorizado.</h3>", 403
 
     conn = obter_conexao()
     cursor = conn.cursor()
 
-    # Mapeamento para descobrir a data real da semana de virada de chave (Junho de 2026)
-    # Segunda-feira da próxima semana será dia 15/06/2026
     dias_datas_v2 = {
         "Segunda": date(2026, 6, 15),
         "Terça": date(2026, 6, 16),
@@ -1065,11 +1066,7 @@ def migrar_agenda():
         "Domingo": date(2026, 6, 21)
     }
 
-    # Busque a rota da migração no seu app.py (provavelmente @app.route("/migrar-agenda"))
-# e substitua o bloco try/except interno por este:
-
     try:
-        # 1. Puxamos o id_sala também da tabela antiga (agenda)
         cursor.execute("SELECT id, dia_semana, horario, id_professor, id_aluno, tipo_aula, id_sala FROM agenda;")
         agendas_antigas = cursor.fetchall()
 
@@ -1083,10 +1080,10 @@ def migrar_agenda():
                 id_prof = item.get("id_professor")
                 id_aluno = item.get("id_aluno")
                 tipo = item.get("tipo_aula")
-                sala_antiga = item.get("id_sala") # Captura a sala antiga
+                sala_antiga = item.get("id_sala")
             else:
                 dia_texto, hora_original, id_prof, id_aluno, tipo = item[1], item[2], item[3], item[4], item[5]
-                sala_antiga = item[6] if len(item) > 6 else 1 # Captura a sala antiga se existir
+                sala_antiga = item[6] if len(item) > 6 else 1
 
             if not id_aluno or dia_texto not in dias_datas_v2:
                 continue
@@ -1100,14 +1097,11 @@ def migrar_agenda():
 
             data_start_real = dias_datas_v2[dia_texto]
             tipo_convertido = "Aula" if tipo == "Regular" or tipo == "Fixa" else "Recuperacao"
-            
-            # Garante que a sala seja 1 ou 2 (caso esteja nula ou vazia no histórico antigo)
             sala_final = int(sala_antiga) if sala_antiga and str(sala_antiga).isdigit() else 1
 
             cursor.execute("SAVEPOINT linha_migracao;")
             
             try:
-                # 2. INSERE NA TABELA PRINCIPAL INCLUINDO A SALA CORRETA MIGRADA
                 query_insere = """
                     INSERT INTO eventos_agenda (titulo, data_evento, horario_inicio, horario_fim, id_professor, tipo_evento, recorrencia, id_sala)
                     VALUES (%s, %s, %s, %s, %s, %s, 'Semanal', %s) RETURNING id;
@@ -1117,7 +1111,6 @@ def migrar_agenda():
                 res_novo = cursor.fetchone()
                 id_evento_novo = res_novo['id'] if isinstance(res_novo, dict) else res_novo[0]
 
-                # 3. INSERE NA TABELA INTERMEDIÁRIA
                 cursor.execute(
                     "INSERT INTO evento_alunos (id_evento, id_aluno) VALUES (%s, %s);",
                     (id_evento_novo, id_aluno)
@@ -1139,6 +1132,7 @@ def migrar_agenda():
 
     return f"<h3>{mensagem}</h3><br><a href='/agenda-v2'>Ir para a Nova Agenda</a>"
 
+
 @app.route("/api/eventos/excluir/<id_evento>")
 def api_eventos_excluir(id_evento):
     if "professor_id" not in session:
@@ -1148,11 +1142,9 @@ def api_eventos_excluir(id_evento):
     cursor = conn.cursor()
 
     try:
-        # 1. Trata o ID caso ele venha do FullCalendar como "semanal-45-2026-06-09" ou "rec-45-..."
         id_str = str(id_evento)
         if "-" in id_str:
             partes = id_str.split("-")
-            # Procura pelo pedaço que contém o ID real numérico do banco
             if len(partes) > 1 and partes[1].isdigit():
                 id_real = int(partes[1])
             else:
@@ -1160,10 +1152,7 @@ def api_eventos_excluir(id_evento):
         else:
             id_real = int(id_str)
 
-        # 2. Primeiro removemos os vínculos na tabela intermediária convertendo para INTEIRO
         cursor.execute("DELETE FROM evento_alunos WHERE id_evento = %s;", (id_real,))
-
-        # 3. Agora sim, removemos o evento principal da agenda convertendo para INTEIRO
         cursor.execute("DELETE FROM eventos_agenda WHERE id = %s;", (id_real,))
 
         conn.commit()
@@ -1175,23 +1164,12 @@ def api_eventos_excluir(id_evento):
         cursor.close()
         conn.close()
 
-    # Redireciona de volta para a página da agenda v2 para atualizar a tela no automático
     return redirect("/agenda")
 
-# ==============================================================================
-# 🤖 INTEGRAÇÃO WHATSAPP & IA (GEMINI) + COBRANÇA AUTOMÁTICA VIA PIX
-# ==============================================================================
 
 @app.route("/api/whatsapp/webhook", methods=["POST"])
 def whatsapp_webhook():
-    """
-    Recebe as mensagens do WhatsApp via Evolution API, 
-    processa a dúvida usando a API do Gemini e responde automaticamente.
-    """
     dados = request.get_json(silent=True) or {}
-    
-    # Extrai o número do remetente e o texto da mensagem
-    # (Estrutura padrão da Evolution API v2)
     try:
         remote_jid = dados.get("data", {}).get("key", {}).get("remoteJid", "")
         mensagem_texto = dados.get("data", {}).get("message", {}).get("conversation", "")
@@ -1201,14 +1179,11 @@ def whatsapp_webhook():
             
         from_me = dados.get("data", {}).get("key", {}).get("fromMe", False)
 
-        # Evita responder mensagens enviadas pelo próprio número da escola
         if from_me or not remote_jid or not mensagem_texto:
             return jsonify({"status": "ignored"}), 200
 
-        # Limpa o número para envio
         numero_whatsapp = remote_jid.split("@")[0]
 
-        # 🧠 CONSULTA AO GEMINI COM SYSTEM PROMPT PERSONALIZADO
         gemini_api_key = os.environ.get("GEMINI_API_KEY")
         if gemini_api_key:
             from google import genai
@@ -1236,7 +1211,6 @@ def whatsapp_webhook():
         else:
             resposta_ia = "Olá! Obrigado por entrar em contato com o Estúdio A. Em breve um de nossos atendentes irá responder você!"
 
-        # Retorna a resposta para o Webhook consumir
         return jsonify({
             "status": "success",
             "numero": numero_whatsapp,
@@ -1250,11 +1224,6 @@ def whatsapp_webhook():
 
 @app.route("/api/whatsapp/cobrar-mensalidades", methods=["GET", "POST"])
 def cobrar_mensalidades_automático():
-    """
-    Varre os alunos devendo no Supabase e gera as mensagens de cobrança 
-    com o Pix individualizado do professor responsável.
-    """
-    # Trava de segurança: apenas requisição autorizada ou do gestor
     if "professor_id" not in session and request.args.get("token") != app.secret_key:
         return jsonify({"erro": "Acesso não autorizado"}), 403
 
@@ -1264,7 +1233,7 @@ def cobrar_mensalidades_automático():
     dia_hoje = datetime.now().day
     competencia_atual = datetime.now().strftime("%m/%Y")
 
-    # Busca mensalidades pendentes ou que vencem hoje com os dados do aluno e a chave Pix do professor
+    # Filtra apenas alunos ATIVOS para disparo de cobrança
     query_cobrança = """
         SELECT 
             al.nome AS aluno_nome, 
@@ -1272,13 +1241,13 @@ def cobrar_mensalidades_automático():
             al.vencimento_mensalidade, 
             m.valor_devido, 
             p.nome AS professor_nome, 
-            p.chave_pix AS professor_pix,
+            p.chave_pix AS professor_pix, 
             d.nome AS disciplina_nome
         FROM mensalidades m
         JOIN alunos al ON m.id_aluno = al.id
         LEFT JOIN professores p ON al.id_professor = p.id
         LEFT JOIN disciplinas d ON al.id_disciplina = d.id
-        WHERE m.competencia = %s AND m.status != 'Pago';
+        WHERE m.competencia = %s AND m.status != 'Pago' AND (al.status = 'Ativo' OR al.status IS NULL);
     """
     cursor.execute(query_cobrança, (competencia_atual,))
     resultados = cursor.fetchall()
@@ -1297,7 +1266,6 @@ def cobrar_mensalidades_automático():
         else:
             aluno_nome, telefone, vencimento, valor, prof_nome, prof_pix, disciplina = row[0], row[1], str(row[2]).strip(), row[3] or 220.00, row[4] or "Estúdio A", row[5] or "Chave Pix não cadastrada", row[6] or "Música"
 
-        # Verifica se o vencimento é hoje ou se já passou do dia
         try:
             venc_int = int(vencimento)
             if dia_hoje >= venc_int:
@@ -1327,6 +1295,7 @@ def cobrar_mensalidades_automático():
         "total_cobrancas_geradas": len(mensagens_geradas),
         "cobrancas": mensagens_geradas
     }), 200
+
 
 if __name__ == "__main__":
     porta = int(os.environ.get("PORT", 5000))
