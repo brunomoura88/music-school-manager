@@ -13,24 +13,33 @@
 
     <style>
         body {
-            background-color: #121212;
+            background-color: #0b0b0b;
+            background-image: url("{{ url_for('static', filename='img/fundosistema.png') }}");
+            background-size: cover;
+            background-position: center;
+            background-repeat: no-repeat;
+            background-attachment: fixed;
             color: #ffffff;
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             min-height: 100vh;
         }
         .navbar-estudio {
-            background-color: #0b0b0b;
+            background-color: rgba(0, 0, 0, 0.7);
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
             border-bottom: 3px solid #800020;
         }
         .calendar-container {
-            background-color: #1a1a1a;
-            border: 1px solid #2a2a2a;
+            background-color: rgba(24, 24, 24, 0.88);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
             border-radius: 12px;
             padding: 20px;
-            box-shadow: 0 8px 24px rgba(0,0,0,0.5);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6);
         }
         .fc {
-            --fc-border-color: #2d2d2d;
+            --fc-border-color: rgba(255, 255, 255, 0.1);
             --fc-daygrid-event-dot-color: #800020;
             --fc-button-bg-color: #800020;
             --fc-button-border-color: #800020;
@@ -38,7 +47,7 @@
             --fc-button-hover-border-color: #a00028;
             --fc-button-active-bg-color: #d4af37;
             --fc-button-active-border-color: #d4af37;
-            --fc-today-bg-color: rgba(212, 175, 55, 0.05);
+            --fc-today-bg-color: rgba(212, 175, 55, 0.08);
         }
         .fc .fc-toolbar-title {
             font-size: 1.2rem;
@@ -50,7 +59,7 @@
         .fc-timegrid-slot { height: 3.5em !important; }
         
         .fc-col-header-cell {
-            background-color: #222222 !important;
+            background-color: rgba(30, 30, 30, 0.9) !important;
         }
         .fc-col-header-cell-cushion {
             color: #d4af37 !important;
@@ -203,14 +212,32 @@
             }
         }
 
+        /* Modais translúcidos no estilo Glassmorphism */
         .modal-content-custom {
-            background-color: #1e1e1e;
-            border: 1px solid #333;
+            background-color: rgba(26, 26, 26, 0.95);
+            backdrop-filter: blur(14px);
+            -webkit-backdrop-filter: blur(14px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 12px;
             color: white;
+            box-shadow: 0 10px 35px rgba(0, 0, 0, 0.7);
         }
         .modal-header-custom {
-            border-bottom: 1px solid #333;
-            background-color: #0b0b0b;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+            background-color: rgba(11, 11, 11, 0.75);
+            border-top-left-radius: 12px;
+            border-top-right-radius: 12px;
+        }
+        .btn-bordor {
+            background-color: #800020;
+            color: white;
+            font-weight: bold;
+            border: none;
+            transition: background 0.3s;
+        }
+        .btn-bordor:hover {
+            background-color: #a00028;
+            color: white;
         }
     </style>
 </head>
@@ -334,7 +361,7 @@
                             </select>
                         </div>
                     </div>
-                    <div class="modal-footer border-top border-dark bg-opacity-10 bg-black">
+                    <div class="modal-footer border-top border-secondary border-opacity-25 bg-black bg-opacity-25">
                         <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal">Cancelar</button>
                         <button type="submit" class="btn btn-warning btn-sm fw-bold px-4">Salvar</button>
                     </div>
@@ -431,7 +458,7 @@
                             </select>
                         </div>
                     </div>
-                    <div class="modal-footer border-top border-dark bg-opacity-10 bg-black">
+                    <div class="modal-footer border-top border-secondary border-opacity-25 bg-black bg-opacity-25">
                         <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal">Cancelar</button>
                         <button type="submit" class="btn btn-warning btn-sm fw-bold px-4">Salvar Alterações</button>
                     </div>
@@ -451,7 +478,6 @@
             var filtroSala = document.getElementById('filtroSala');
             modalEditarInstance = new bootstrap.Modal(document.getElementById('modalEditarEvento'));
 
-            // Recupera sala da URL (se existir)
             var urlParams = new URLSearchParams(window.location.search);
             var salaUrl = urlParams.get('sala');
             if (salaUrl && filtroSala.querySelector(`option[value="${salaUrl}"]`)) {
@@ -576,11 +602,9 @@
                         container.style.paddingRight = "30px";
                     }
                     
-                    // Grupo de Botões (Lápis e Lixeira)
                     var grupoBotoes = document.createElement('div');
                     grupoBotoes.className = 'event-action-buttons';
 
-                    // Botão Editar (Lápis)
                     var btnEditar = document.createElement('button');
                     btnEditar.className = 'btn-action-event btn-action-edit';
                     btnEditar.title = 'Editar Aula';
@@ -591,7 +615,6 @@
                     });
                     grupoBotoes.appendChild(btnEditar);
 
-                    // Botão Excluir (Lixeira)
                     var btnLixeira = document.createElement('button');
                     btnLixeira.className = 'btn-action-event btn-action-delete';
                     btnLixeira.title = 'Excluir Aula';
@@ -614,7 +637,6 @@
             filtroSala.addEventListener('change', function() {
                 var salaId = filtroSala.value;
                 document.getElementById('id_sala').value = salaId;
-                // Atualiza a URL sem recarregar para persistir na navegação
                 var newUrl = window.location.pathname + '?sala=' + salaId;
                 window.history.replaceState({path: newUrl}, '', newUrl);
                 calendar.refetchEvents();
@@ -625,7 +647,6 @@
             var form = document.getElementById("formEditarEvento");
             var idEventoLimpo = event.id;
             
-            // Extrai o ID real do banco caso tenha prefixo (semanal-45-...)
             if (idEventoLimpo && idEventoLimpo.includes("-")) {
                 var partes = idEventoLimpo.split("-");
                 if (partes.length > 1 && !isNaN(partes[1])) {
@@ -635,11 +656,9 @@
 
             form.action = "/api/eventos/editar/" + idEventoLimpo;
 
-            // Formata Horários
             var inicioStr = event.start ? event.start.toTimeString().substring(0, 5) : "08:00";
             var fimStr = event.end ? event.end.toTimeString().substring(0, 5) : "09:00";
             
-            // Formata Data YYYY-MM-DD
             var dataFormatada = "";
             if (event.start) {
                 var ano = event.start.getFullYear();
