@@ -5,7 +5,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Estúdio A - Agenda Avançada</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@v5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
     
     <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.10/index.global.min.js"></script>
@@ -29,7 +29,6 @@
             padding: 20px;
             box-shadow: 0 8px 24px rgba(0,0,0,0.5);
         }
-        /* Customizando o FullCalendar para Modo Escuro */
         .fc {
             --fc-border-color: #2d2d2d;
             --fc-daygrid-event-dot-color: #800020;
@@ -50,7 +49,6 @@
         .fc a { color: #ffffff; text-decoration: none; }
         .fc-timegrid-slot { height: 3.5em !important; }
         
-        /* CORREÇÃO DO TOPO DA TABELA (DIAS DA SEMANA) */
         .fc-col-header-cell {
             background-color: #222222 !important;
         }
@@ -61,7 +59,6 @@
             padding: 5px !important;
         }
 
-        /* --- 🎨 LAYOUT DESIGN PREMIUM DOS CARDS (PC E TABLET) --- */
         .fc-v-event .fc-event-main {
             padding: 6px 8px !important;
             display: flex;
@@ -69,15 +66,16 @@
             justify-content: flex-start;
             height: 100%;
             position: relative;
+            cursor: pointer;
         }
 
         .event-card-content {
             display: flex;
             flex-direction: column;
-            gap: 3px; /* Espaço uniforme entre as 3 linhas */
+            gap: 3px;
             width: 100%;
             height: 100%;
-            padding-bottom: 16px; /* Evita que o texto passe por cima da lixeira */
+            padding-bottom: 20px;
         }
 
         .event-aluno-name {
@@ -101,27 +99,41 @@
         }
         
         .event-disciplina {
-            color: #d4af37 !important; /* Dourado suave para dar destaque ao instrumento */
+            color: #d4af37 !important;
         }
         
         .event-professor {
             color: rgba(255, 255, 255, 0.85) !important;
         }
 
-        .btn-deletar-event {
-            background: none;
-            border: none;
-            color: rgba(255, 255, 255, 0.5);
-            font-size: 13px;
+        .event-action-buttons {
             position: absolute;
             bottom: 4px;
             right: 6px;
-            cursor: pointer;
-            transition: color 0.2s;
-            padding: 2px;
+            display: flex;
+            gap: 8px;
             z-index: 10;
         }
-        .btn-deletar-event:hover {
+
+        .btn-action-event {
+            background: none;
+            border: none;
+            font-size: 13px;
+            cursor: pointer;
+            transition: color 0.2s;
+            padding: 0;
+            line-height: 1;
+        }
+        .btn-action-edit {
+            color: rgba(255, 255, 255, 0.6);
+        }
+        .btn-action-edit:hover {
+            color: #ffc107 !important;
+        }
+        .btn-action-delete {
+            color: rgba(255, 255, 255, 0.6);
+        }
+        .btn-action-delete:hover {
             color: #ff4d4d !important;
         }
 
@@ -139,7 +151,6 @@
             z-index: 5;
         }
 
-        /* --- 📱 CRITÉRIOS DE AJUSTE EXCLUSIVOS PARA CELULAR (MOBILE) --- */
         @media (max-width: 767px) {
             .fc .fc-toolbar {
                 flex-direction: column;
@@ -162,14 +173,12 @@
                 font-size: 11px;
                 padding: 4px 2px !important;
             }
-
-            /* Redimensionamento responsivo para o celular não esmagar as colunas */
             .fc-v-event .fc-event-main {
                 padding: 4px 4px !important;
             }
             .event-card-content {
-                padding-bottom: 12px;
-                gap: 1px; /* Cola as linhas sutilmente para caber tudo na vertical */
+                padding-bottom: 16px;
+                gap: 1px;
             }
             .event-aluno-name {
                 font-size: 10px !important;
@@ -181,22 +190,19 @@
                 line-height: 1;
             }
             .event-info-row i {
-                display: none !important; /* Esconde ícones no mobile para liberar espaço de texto */
+                display: none !important;
             }
-            .btn-deletar-event {
+            .btn-action-event {
                 font-size: 10px;
-                bottom: 2px;
-                right: 3px;
             }
             .rec-tag {
                 font-size: 8px;
                 padding: 1px 3px;
                 top: 2px;
-                right: 3px;
+                right: 2px;
             }
         }
 
-        /* Modal Estilizado */
         .modal-content-custom {
             background-color: #1e1e1e;
             border: 1px solid #333;
@@ -229,7 +235,7 @@
             <div class="row mb-3 align-items-end">
                 <div class="col-md-4">
                     <label for="filtroSala" class="form-label fw-bold text-white">🏫 Visualizar Sala de Aula:</label>
-                    <select id="filtroSala" class="form-select bg-dark text-white border-secondary">                        
+                    <select id="filtroSala" class="form-select bg-dark text-white border-secondary">                       
                         {% for s in salas %}
                         <option value="{{ s.id }}">{{ s.nome }}</option>
                         {% endfor %}
@@ -240,19 +246,19 @@
         </div>
     </div>
 
+    <!-- MODAL NOVO EVENTO -->
     <div class="modal fade" id="modalNovoEvento" tabindex="-1" aria-hidden="true">
         <div class="modal-dialog modal-md">
             <div class="modal-content modal-content-custom">
                 <div class="modal-header modal-header-custom">
                     <h5 class="modal-title text-warning fw-bold"><i class="bi bi-alarm me-2"></i>Agendar Horário</h5>
-                    <button type="button" class="btn-close btn-close-white" data-bs-shadow="none" data-bs-dismiss="modal" aria-label="Close"></button>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <form action="/api/eventos/salvar" method="POST">
                     <div class="modal-body p-3 p-md-4">
-                        
                         <div class="mb-3">
                             <label class="form-label small text-white-50">Tipo de Evento</label>
-                            <select class="form-select bg-dark text-white border-secondary" name="tipo_evento" id="tipoEvento" required onchange="ajustarFormulario()">
+                            <select class="form-select bg-dark text-white border-secondary" name="tipo_evento" id="tipoEvento" required onchange="ajustarFormularioNovo()">
                                 <option value="Aula">Aula Normal</option>
                                 <option value="Recuperacao">Aula de Recuperação</option>
                                 <option value="Bloqueio">Bloqueio de Horário (Diarista / Recessos)</option>
@@ -323,11 +329,10 @@
                             <label class="form-label small text-white-50">Regra de Recorrência</label>
                             <select class="form-select bg-dark text-white border-secondary" name="recorrencia" id="recorrencia">
                                 <option value="Nenhuma">Ocorre apenas nessa data</option>
-                                <option value="Semanal">Toda semana nesse dia e horário</option>
+                                <option value="Semanal" selected>Toda semana nesse dia e horário</option>
                                 <option value="Quinzenal_Sim_Nao">Quinzenal (Uma semana Sim, outra Não)</option>
                             </select>
                         </div>
-
                     </div>
                     <div class="modal-footer border-top border-dark bg-opacity-10 bg-black">
                         <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal">Cancelar</button>
@@ -338,16 +343,125 @@
         </div>
     </div>
 
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@v5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <!-- MODAL EDITAR EVENTO -->
+    <div class="modal fade" id="modalEditarEvento" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-md">
+            <div class="modal-content modal-content-custom">
+                <div class="modal-header modal-header-custom">
+                    <h5 class="modal-title text-warning fw-bold"><i class="bi bi-pencil-square me-2"></i>Editar Agendamento</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <form id="formEditarEvento" method="POST">
+                    <div class="modal-body p-3 p-md-4">
+                        <div class="mb-3">
+                            <label class="form-label small text-white-50">Tipo de Evento</label>
+                            <select class="form-select bg-dark text-white border-secondary" name="tipo_evento" id="editTipoEvento" required onchange="ajustarFormularioEdit()">
+                                <option value="Aula">Aula Normal</option>
+                                <option value="Recuperacao">Aula de Recuperação</option>
+                                <option value="Bloqueio">Bloqueio de Horário (Diarista / Recessos)</option>
+                                <option value="Feriado">Feriado / Folga Geral</option>
+                            </select>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label small text-white-50">Título / Descrição</label>
+                            <input type="text" class="form-control bg-dark text-white border-secondary" name="titulo" id="editCampoTitulo" required>
+                        </div>
+
+                        <div class="mb-3" id="editBlocoAlunos">
+                            <label class="form-label small text-white-50">Alunos (Segure CTRL para Duplas/Trios)</label>
+                            <select class="form-select bg-dark text-white border-secondary" name="alunos_ids" id="editAlunosIds" multiple style="height: 110px;">
+                                {% for a in alunos %}
+                                <option value="{{ a.id }}">{{ a.nome }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+
+                        <div class="row g-3 mb-3">
+                            <div class="col-12 col-md-6" id="editBlocoProfessor">
+                                <label class="form-label small text-white-50">Professor</label>
+                                <select class="form-select bg-dark text-white border-secondary" name="id_professor" id="editIdProfessor">
+                                    <option value="">Selecione...</option>
+                                    {% for p in professores %}
+                                    <option value="{{ p.id }}">{{ p.nome }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <div class="col-12 col-md-6" id="editBlocoDisciplina">
+                                <label class="form-label small text-white-50">Disciplina</label>
+                                <select class="form-select bg-dark text-white border-secondary" name="id_disciplina" id="editIdDisciplina">
+                                    <option value="">Selecione...</option>
+                                    {% for d in disciplinas %}
+                                    <option value="{{ d.id }}">{{ d.nome }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="mb-3" id="editBlocoSala">
+                            <label for="editIdSala" class="form-label small text-white-50">🏫 Sala Alocada</label>
+                            <select name="id_sala" id="editIdSala" class="form-select bg-dark text-white border-secondary" required>
+                                {% for s in salas %}
+                                <option value="{{ s.id }}">{{ s.nome }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+
+                        <div class="row g-2 mb-3">
+                            <div class="col-12 col-md-4">
+                                <label class="form-label small text-white-50">Data</label>
+                                <input type="date" class="form-control bg-dark text-white border-secondary" name="data_evento" id="editDataEvento" required>
+                            </div>
+                            <div class="col-6 col-md-4">
+                                <label class="form-label small text-white-50">Início</label>
+                                <input type="time" class="form-control bg-dark text-white border-secondary" name="horario_inicio" id="editHorarioInicio" required>
+                            </div>
+                            <div class="col-6 col-md-4">
+                                <label class="form-label small text-white-50">Término</label>
+                                <input type="time" class="form-control bg-dark text-white border-secondary" name="horario_fim" id="editHorarioFim" required>
+                            </div>
+                        </div>
+
+                        <div class="mb-2">
+                            <label class="form-label small text-white-50">Regra de Recorrência</label>
+                            <select class="form-select bg-dark text-white border-secondary" name="recorrencia" id="editRecorrencia">
+                                <option value="Nenhuma">Ocorre apenas nessa data</option>
+                                <option value="Semanal">Toda semana nesse dia e horário</option>
+                                <option value="Quinzenal_Sim_Nao">Quinzenal (Uma semana Sim, outra Não)</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="modal-footer border-top border-dark bg-opacity-10 bg-black">
+                        <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal">Cancelar</button>
+                        <button type="submit" class="btn btn-warning btn-sm fw-bold px-4">Salvar Alterações</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 
     <script>
+        var calendar;
+        var modalEditarInstance;
+
         document.addEventListener('DOMContentLoaded', function() {
             var calendarEl = document.getElementById('calendar');
             var filtroSala = document.getElementById('filtroSala');
-            
+            modalEditarInstance = new bootstrap.Modal(document.getElementById('modalEditarEvento'));
+
+            // Recupera sala da URL (se existir)
+            var urlParams = new URLSearchParams(window.location.search);
+            var salaUrl = urlParams.get('sala');
+            if (salaUrl && filtroSala.querySelector(`option[value="${salaUrl}"]`)) {
+                filtroSala.value = salaUrl;
+                document.getElementById('id_sala').value = salaUrl;
+            }
+
             var visaoInicial = window.innerWidth < 768 ? 'timeGridDay' : 'timeGridWeek';
 
-            var calendar = new FullCalendar.Calendar(calendarEl, {
+            calendar = new FullCalendar.Calendar(calendarEl, {
                 locale: 'pt-br',
                 initialView: visaoInicial,
                 headerToolbar: {
@@ -363,7 +477,6 @@
                 handleWindowResize: true,
                 expandRows: true,
                 
-                // Chamada unificada correta para puxar dados da API do Python
                 events: function(fetchInfo, successCallback, failureCallback) {
                     var sala = filtroSala.value || "1";
                     fetch(`/api/eventos?start=${fetchInfo.startStr}&end=${fetchInfo.endStr}&sala=${sala}`)
@@ -372,7 +485,10 @@
                         .catch(error => failureCallback(error));
                 },
 
-               // 🎨 INJEÇÃO CUSTOMIZADA ULTRA PREENCHIDA (ALUNO, DISCIPLINA E PROFESSOR)
+                eventClick: function(info) {
+                    abrirModalEdicao(info.event);
+                },
+
                 eventContent: function(arg) {
                     var tipo = arg.event.extendedProps.tipo;
                     var tituloCompleto = arg.event.title;
@@ -383,29 +499,25 @@
                     container.style.width = '100%';
                     container.style.height = '100%';
                     
-                    // Captura variáveis vindas direto do backend (caso existam)
                     var nomeAluno = arg.event.extendedProps.aluno || tituloCompleto;
                     var nomeProf = arg.event.extendedProps.professor || "";
                     var nomeDisciplina = arg.event.extendedProps.disciplina || "";
                     
-                    // Lógica de contingência inteligente baseada na string do título antigo
                     if (!nomeProf && tituloCompleto.includes(" (") && tituloCompleto.includes(")")) {
                         var partes = tituloCompleto.split(" (");
                         nomeAluno = partes[0];
                         var conteudoParenteses = partes[1].replace(")", "").trim();
                         
-                        // Lista em minúsculo para evitar problemas com maiúsculas/minúsculas
                         var instrumentosConhecidos = ["bateria", "violão", "guitarra", "canto", "piano", "teclado", "baixo", "contrabaixo", "musicalização"];
                         
                         if (instrumentosConhecidos.includes(conteudoParenteses.toLowerCase())) {
-                            nomeDisciplina = conteudoParenteses.charAt(0).toUpperCase() + conteudoParenteses.slice(1); // Deixa Bonito: "Bateria"
-                            nomeProf = ""; // Zera o professor para não aparecer o instrumento no lugar dele
+                            nomeDisciplina = conteudoParenteses.charAt(0).toUpperCase() + conteudoParenteses.slice(1);
+                            nomeProf = "";
                         } else {
                             nomeProf = conteudoParenteses;
                         }
                     }
                     
-                    // Limpeza extra para quem tem o instrumento grudado no nome
                     if (nomeProf) {
                         var profLower = nomeProf.toLowerCase();
                         if (profLower.includes(" guitarra")) {
@@ -429,7 +541,6 @@
                         }
                     }
                     
-                    // Fallback para exibir pelo menos a disciplina na linha se o prof estiver vazio
                     if (!nomeDisciplina && tipo !== 'Bloqueio' && tipo !== 'Feriado') {
                         var tituloLower = tituloCompleto.toLowerCase();
                         if (tituloLower.includes("bateria")) nomeDisciplina = "Bateria";
@@ -440,19 +551,12 @@
                         else if (tituloLower.includes("contrabaixo")) nomeDisciplina = "Contrabaixo";
                     }
                     
-                    // Se o nome do professor ficou vazio após a limpeza de histórico, define o padrão correto
                     if (!nomeProf && tipo !== 'Bloqueio' && tipo !== 'Feriado') {
-                        if (nomeDisciplina === "Bateria") {
-                            nomeProf = "Guilherme";
-                        } else {
-                            nomeProf = "Estúdio A";
-                        }
+                        nomeProf = (nomeDisciplina === "Bateria") ? "Guilherme" : "Estúdio A";
                     }
 
-                    // Monta a estrutura visual premium de 3 linhas
                     var htmlConteudo = `<div class="event-aluno-name">${nomeAluno}</div>`;
                     
-                    // Se não for bloqueio ou feriado, renderiza as linhas extras de info
                     if (tipo !== 'Bloqueio' && tipo !== 'Feriado') {
                         if (nomeDisciplina) {
                             htmlConteudo += `<div class="event-info-row event-disciplina"><i class="bi bi-music-note-beamed"></i> ${nomeDisciplina}</div>`;
@@ -464,7 +568,6 @@
                     
                     container.innerHTML = htmlConteudo;
                     
-                    // Se for aula de Recuperação, injeta o selo "REC"
                     if (tipo === 'Recuperacao') {
                         var recBadge = document.createElement('span');
                         recBadge.className = 'rec-tag';
@@ -473,20 +576,35 @@
                         container.style.paddingRight = "30px";
                     }
                     
-                    // Injeta o botão da lixeira
+                    // Grupo de Botões (Lápis e Lixeira)
+                    var grupoBotoes = document.createElement('div');
+                    grupoBotoes.className = 'event-action-buttons';
+
+                    // Botão Editar (Lápis)
+                    var btnEditar = document.createElement('button');
+                    btnEditar.className = 'btn-action-event btn-action-edit';
+                    btnEditar.title = 'Editar Aula';
+                    btnEditar.innerHTML = '<i class="bi bi-pencil-square"></i>';
+                    btnEditar.addEventListener('click', function(e) {
+                        e.stopPropagation();
+                        abrirModalEdicao(arg.event);
+                    });
+                    grupoBotoes.appendChild(btnEditar);
+
+                    // Botão Excluir (Lixeira)
                     var btnLixeira = document.createElement('button');
-                    btnLixeira.className = 'btn-deletar-event';
+                    btnLixeira.className = 'btn-action-event btn-action-delete';
+                    btnLixeira.title = 'Excluir Aula';
                     btnLixeira.innerHTML = '<i class="bi bi-trash3-fill"></i>';
-                    
                     btnLixeira.addEventListener('click', function(e) {
                         e.stopPropagation();
                         if (confirm("Deseja mesmo REMOVER o agendamento de: " + nomeAluno + "?")) {
                             window.location.href = "/api/eventos/excluir/" + arg.event.id;
                         }
                     });
+                    grupoBotoes.appendChild(btnLixeira);
                     
-                    container.appendChild(btnLixeira);
-                    
+                    container.appendChild(grupoBotoes);
                     return { domNodes: [container] };
                 },
             });
@@ -494,11 +612,55 @@
             calendar.render();
 
             filtroSala.addEventListener('change', function() {
+                var salaId = filtroSala.value;
+                document.getElementById('id_sala').value = salaId;
+                // Atualiza a URL sem recarregar para persistir na navegação
+                var newUrl = window.location.pathname + '?sala=' + salaId;
+                window.history.replaceState({path: newUrl}, '', newUrl);
                 calendar.refetchEvents();
             });
         });
 
-        function ajustarFormulario() {
+        function abrirModalEdicao(event) {
+            var form = document.getElementById("formEditarEvento");
+            var idEventoLimpo = event.id;
+            
+            // Extrai o ID real do banco caso tenha prefixo (semanal-45-...)
+            if (idEventoLimpo && idEventoLimpo.includes("-")) {
+                var partes = idEventoLimpo.split("-");
+                if (partes.length > 1 && !isNaN(partes[1])) {
+                    idEventoLimpo = partes[1];
+                }
+            }
+
+            form.action = "/api/eventos/editar/" + idEventoLimpo;
+
+            // Formata Horários
+            var inicioStr = event.start ? event.start.toTimeString().substring(0, 5) : "08:00";
+            var fimStr = event.end ? event.end.toTimeString().substring(0, 5) : "09:00";
+            
+            // Formata Data YYYY-MM-DD
+            var dataFormatada = "";
+            if (event.start) {
+                var ano = event.start.getFullYear();
+                var mes = String(event.start.getMonth() + 1).padStart(2, '0');
+                var dia = String(event.start.getDate()).padStart(2, '0');
+                dataFormatada = `${ano}-${mes}-${dia}`;
+            }
+
+            document.getElementById("editCampoTitulo").value = event.title || "";
+            document.getElementById("editDataEvento").value = dataFormatada;
+            document.getElementById("editHorarioInicio").value = inicioStr;
+            document.getElementById("editHorarioFim").value = fimStr;
+
+            var salaAtual = document.getElementById("filtroSala").value || "1";
+            document.getElementById("editIdSala").value = salaAtual;
+
+            ajustarFormularioEdit();
+            modalEditarInstance.show();
+        }
+
+        function ajustarFormularioNovo() {
             var tipo = document.getElementById("tipoEvento").value;
             var blocoAlunos = document.getElementById("blocoAlunos");
             var blocoProf = document.getElementById("blocoProfessor");
@@ -515,6 +677,23 @@
                 blocoProf.style.display = "block";
                 blocoDisc.style.display = "block";
                 campoTitulo.value = "";
+            }
+        }
+
+        function ajustarFormularioEdit() {
+            var tipo = document.getElementById("editTipoEvento").value;
+            var blocoAlunos = document.getElementById("editBlocoAlunos");
+            var blocoProf = document.getElementById("editBlocoProfessor");
+            var blocoDisc = document.getElementById("editBlocoDisciplina");
+
+            if (tipo === "Bloqueio" || tipo === "Feriado") {
+                blocoAlunos.style.display = "none";
+                blocoProf.style.display = "none";
+                blocoDisc.style.display = "none";
+            } else {
+                blocoAlunos.style.display = "block";
+                blocoProf.style.display = "block";
+                blocoDisc.style.display = "block";
             }
         }
     </script>
