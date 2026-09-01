@@ -1221,6 +1221,74 @@ def whatsapp_webhook():
         print(f"❌ Erro no processamento do Webhook do WhatsApp: {e}")
         return jsonify({"status": "error", "message": str(e)}), 500
 
+@app.route("/api/eventos/editar/<id_evento>", methods=["POST"])
+def api_eventos_editar(id_evento):
+    if "professor_id" not in session:
+        return redirect("/")
+
+    tipo_evento = request.form.get("tipo_evento")
+    titulo = request.form.get("titulo")
+    descricao = request.form.get("descricao", "")
+    data_evento = request.form.get("data_evento")
+    horario_inicio = request.form.get("horario_inicio")
+    horario_fim = request.form.get("horario_fim")
+    id_professor = request.form.get("id_professor")
+    id_disciplina = request.form.get("id_disciplina")
+    recorrencia = request.form.get("recorrencia", "Nenhuma")
+    id_sala = request.form.get("id_sala", 1)
+
+    alunos_ids = request.form.getlist("alunos_ids")
+
+    if tipo_evento in ["Bloqueio", "Feriado"]:
+        id_professor = None
+        id_disciplina = None
+        alunos_ids = []
+
+    conn = obter_conexao()
+    cursor = conn.cursor()
+
+    try:
+        # Trata o ID caso venha prefixado (ex: "semanal-12-...")
+        id_str = str(id_evento)
+        if "-" in id_str:
+            partes = id_str.split("-")
+            id_real = int(partes[1]) if len(partes) > 1 and partes[1].isdigit() else int(id_str)
+        else:
+            id_real = int(id_str)
+
+        # Atualiza a tabela principal de eventos
+        cursor.execute("""
+            UPDATE eventos_agenda
+            SET titulo = %s, descricao = %s, data_evento = %s, horario_inicio = %s, 
+                horario_fim = %s, id_professor = %s, id_disciplina = %s, 
+                tipo_evento = %s, recorrencia = %s, id_sala = %s
+            WHERE id = %s;
+        """, (
+            titulo, descricao, data_evento, horario_inicio, horario_fim,
+            id_professor if id_professor else None,
+            id_disciplina if id_disciplina else None,
+            tipo_evento, recorrencia, int(id_sala), id_real
+        ))
+
+        # Atualiza a tabela de alunos vinculados
+        cursor.execute("DELETE FROM evento_alunos WHERE id_evento = %s;", (id_real,))
+        for al_id in alunos_ids:
+            if al_id:
+                cursor.execute(
+                    "INSERT INTO evento_alunos (id_evento, id_aluno) VALUES (%s, %s);",
+                    (id_real, int(al_id))
+                )
+
+        conn.commit()
+    except Exception as e:
+        conn.rollback()
+        print(f"Erro ao editar evento: {e}")
+    finally:
+        cursor.close()
+        conn.close()
+
+    return redirect(f"/agenda?sala={id_sala}")
+
 
 @app.route("/api/whatsapp/cobrar-mensalidades", methods=["GET", "POST"])
 def cobrar_mensalidades_automático():
