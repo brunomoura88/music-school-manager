@@ -264,6 +264,12 @@ def dashboard():
         else (res_alunos[0] if res_alunos else 0)
     )
 
+ from zoneinfo import ZoneInfo
+
+    # 1. Garante a data e fuso horário oficial do Brasil (evita virar o dia às 21h)
+    fuso_br = ZoneInfo("America/Sao_Paulo")
+    agora_br = datetime.now(fuso_br)
+
     dias_semana_pt = {
         0: "Segunda",
         1: "Terça",
@@ -273,17 +279,19 @@ def dashboard():
         5: "Sábado",
         6: "Domingo",
     }
-    dia_atual_pt = dias_semana_pt[datetime.now().weekday()]
+    dia_atual_pt = dias_semana_pt[agora_br.weekday()]
 
+    # 2. Busca usando LIKE com curinga (%) para casar tanto "Segunda" quanto "Segunda-feira", "Segunda-Feira", etc.
+    # E se a agenda tiver coluna de status/ativo, garante que conta apenas aulas ativas
     if nome_logado in gestores_escola:
         cursor.execute(
-            "SELECT COUNT(*) AS total FROM agenda WHERE dia_semana = %s;",
-            (dia_atual_pt,),
+            "SELECT COUNT(*) AS total FROM agenda WHERE dia_semana ILIKE %s;",
+            (f"{dia_atual_pt}%",),
         )
     else:
         cursor.execute(
-            "SELECT COUNT(*) AS total FROM agenda WHERE dia_semana = %s AND id_professor = %s;",
-            (dia_atual_pt, id_logado),
+            "SELECT COUNT(*) AS total FROM agenda WHERE dia_semana ILIKE %s AND id_professor = %s;",
+            (f"{dia_atual_pt}%", id_logado),
         )
     res_aulas = cursor.fetchone()
     aulas_hoje = (
