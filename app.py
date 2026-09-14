@@ -3,6 +3,7 @@ import sqlite3
 from datetime import datetime, timedelta, date
 from werkzeug.security import generate_password_hash, check_password_hash
 import os
+from zoneinfo import ZoneInfo
 
 
 def is_sqlite_conn(conn):
@@ -264,7 +265,6 @@ def dashboard():
         else (res_alunos[0] if res_alunos else 0)
     )
 
- from zoneinfo import ZoneInfo
 
     # 1. Garante a data e fuso horário oficial do Brasil (evita virar o dia às 21h)
     fuso_br = ZoneInfo("America/Sao_Paulo")
