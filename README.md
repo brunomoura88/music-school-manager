@@ -16,19 +16,19 @@ O **Music School Manager** é uma plataforma integrada de ERP, gestão pedagógi
 ### 1. Painel Principal & Indicadores Rápidos
 > Hub de navegação rápida com contadores dinâmicos de alunos ativos, total de aulas do dia sincronizadas em tempo real e competência contábil ativa.
 <p align="center">
-  <img src="static/img/dashboard_hub.jpg" alt="Painel Principal" width="90%" style="border-radius: 8px; box-shadow: 0 4px 8px rgba(0,0,0,0.2);">
+  <img src="static/img/dashboard_hub.png" alt="Painel Principal" width="90%" style="border-radius: 8px; box-shadow: 0 4px 8px rgba(0,0,0,0.2);">
 </p>
 
 ### 2. Agenda Inteligente & Gestão de Salas
 > Grade semanal de horários com filtros por sala de aula, bloqueios administrativos (ex.: manutenção e limpeza), vinculação de docentes e regras dinâmicas de exibição.
 <p align="center">
-  <img src="static/img/agenda_grade.jpg" alt="Grade Semanal de Salas" width="90%" style="border-radius: 8px; box-shadow: 0 4px 8px rgba(0,0,0,0.2);">
+  <img src="static/img/agenda_grade.png" alt="Grade Semanal de Salas" width="90%" style="border-radius: 8px; box-shadow: 0 4px 8px rgba(0,0,0,0.2);">
 </p>
 
 ### 3. Matrículas & Gestão de Alunos
 > Cadastro completo de estudantes, definição de modalidades, vínculo de docentes, regras de vencimento, estados financeiro/pedagógico e emissão dinâmica de contratos.
 <p align="center">
-  <img src="static/img/alunos_gestao.jpg" alt="Gestão de Alunos e Matrículas" width="90%" style="border-radius: 8px; box-shadow: 0 4px 8px rgba(0,0,0,0.2);">
+  <img src="static/img/alunos_gestao.png" alt="Gestão de Alunos e Matrículas" width="90%" style="border-radius: 8px; box-shadow: 0 4px 8px rgba(0,0,0,0.2);">
 </p>
 
 ---
