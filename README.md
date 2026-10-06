@@ -26,9 +26,15 @@ O **Music School Manager** é uma plataforma integrada de ERP, gestão pedagógi
 </p>
 
 ### 3. Matrículas & Gestão de Alunos
-> Cadastro completo de estudantes, definição de modalidades, vínculo de docentes, regras de vencimento, estados financeiro/pedagógico e emissão dinâmica de contratos.
+> Registo completo de estudantes, definição de modalidades, vínculo de docentes, regras de vencimento, estados financeiro/pedagógico e emissão dinâmica de contratos.
 <p align="center">
   <img src="static/img/alunos_gestao.png" alt="Gestão de Alunos e Matrículas" width="90%" style="border-radius: 8px; box-shadow: 0 4px 8px rgba(0,0,0,0.2);">
+</p>
+
+### 4. Módulo Financeiro & Controlo de Mensalidades
+> Painel de fluxo de caixa com consolidação de entradas, previsões no prazo, monitorização de inadimplência e gestão de cobranças por competência.
+<p align="center">
+  <img src="static/img/financeiro_mensalidades.png" alt="Controlo Financeiro e Mensalidades" width="90%" style="border-radius: 8px; box-shadow: 0 4px 8px rgba(0,0,0,0.2);">
 </p>
 
 ---
