@@ -194,5 +194,61 @@
         Sistema de Gestão Integrada | Desenvolvido com <span>❤️</span> por <strong>Bruno Moura</strong> &copy; 2026
     </footer>
 
+    {% if aviso_popup %}
+<!-- Modal de Aviso Geral -->
+<div class="modal fade" id="modalAvisoGeral" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered modal-lg">
+    <div class="modal-content border-0 shadow-lg">
+      {% if aviso_popup.titulo %}
+      <div class="modal-header bg-dark text-white">
+        <h5 class="modal-title fw-bold">{{ aviso_popup.titulo }}</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Fechar"></button>
+      </div>
+      {% else %}
+      <div class="position-absolute top-0 end-0 p-2" style="z-index: 10;">
+        <button type="button" class="btn-close bg-white p-2 rounded-circle shadow" data-bs-dismiss="modal" aria-label="Fechar"></button>
+      </div>
+      {% endif %}
+
+      <div class="modal-body text-center p-0">
+        {% if aviso_popup.imagem_url %}
+          <img src="{{ aviso_popup.imagem_url }}" alt="Aviso Estúdio A" class="img-fluid w-100" style="max-height: 75vh; object-fit: contain;">
+        {% endif %}
+        
+        {% if aviso_popup.mensagem %}
+          <div class="p-4 text-start">
+            <p class="mb-0 fs-5" style="white-space: pre-line;">{{ aviso_popup.mensagem }}</p>
+          </div>
+        {% endif %}
+      </div>
+
+      <div class="modal-footer justify-content-center">
+        <button type="button" class="btn btn-primary px-4 fw-bold" data-bs-dismiss="modal">Entendi</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  document.addEventListener("DOMContentLoaded", function () {
+    const versaoAviso = "{{ aviso_popup.versao }}";
+    const chaveVisto = "estudioa_aviso_visto_" + versaoAviso;
+
+    // Só abre se o professor ainda não fechou esta versão do aviso nesta sessão
+    if (!sessionStorage.getItem(chaveVisto)) {
+      const modalEl = document.getElementById("modalAvisoGeral");
+      if (modalEl && typeof bootstrap !== "undefined") {
+        const modalAviso = new bootstrap.Modal(modalEl);
+        modalAviso.show();
+
+        modalEl.addEventListener("hidden.bs.modal", function () {
+          sessionStorage.setItem(chaveVisto, "true");
+        });
+      }
+    }
+  });
+</script>
+{% endif %}
+
 </body>
 </html>
