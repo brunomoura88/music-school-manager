@@ -1,3 +1,1 @@
-senha banco de dados estúdio a :
-hT2zCPJSRZRHx6rS
-postgresql://postgres:hT2zCPJSRZRHx6rS@db.jhoawrwpxxaftixmuqul.supabase.co:5432/postgres
+
