@@ -1372,6 +1372,139 @@ def cobrar_mensalidades_automático():
         "cobrancas": mensagens_geradas
     }), 200
 
+# ==========================================
+# SISTEMA DE AVISO GERAL (POPUP)
+# ==========================================
+
+def garantir_tabela_aviso(cursor, conn):
+    is_postgres = hasattr(conn, "encoding") or conn.__class__.__name__ == "Connection"
+    id_auto = "SERIAL PRIMARY KEY" if is_postgres else "INTEGER PRIMARY KEY AUTOINCREMENT"
+    text_type = "TEXT"
+    bool_type = "BOOLEAN DEFAULT FALSE" if is_postgres else "INTEGER DEFAULT 0"
+
+    cursor.execute(f"""
+        CREATE TABLE IF NOT EXISTS aviso_geral (
+            id {id_auto},
+            ativo {bool_type},
+            titulo {text_type},
+            imagem_url {text_type},
+            mensagem {text_type},
+            versao INTEGER DEFAULT 1
+        );
+    """)
+    conn.commit()
+
+
+@app.context_processor
+def injetar_aviso_geral():
+    if "professor_id" not in session:
+        return dict(aviso_popup=None)
+    conn = None
+    cursor = None
+    try:
+        conn = obter_conexao()
+        cursor = conn.cursor()
+        garantir_tabela_aviso(cursor, conn)
+        cursor.execute("SELECT id, ativo, titulo, imagem_url, mensagem, versao FROM aviso_geral ORDER BY id DESC LIMIT 1;")
+        row = cursor.fetchone()
+        if row:
+            if isinstance(row, dict) or hasattr(row, "get"):
+                ativo = bool(row.get("ativo"))
+                aviso = {
+                    "id": row.get("id"),
+                    "ativo": ativo,
+                    "titulo": row.get("titulo") or "",
+                    "imagem_url": row.get("imagem_url") or "",
+                    "mensagem": row.get("mensagem") or "",
+                    "versao": row.get("versao") or 1
+                }
+            else:
+                ativo = bool(row[1])
+                aviso = {
+                    "id": row[0],
+                    "ativo": ativo,
+                    "titulo": row[2] or "",
+                    "imagem_url": row[3] or "",
+                    "mensagem": row[4] or "",
+                    "versao": row[5] or 1
+                }
+            if aviso["ativo"]:
+                return dict(aviso_popup=aviso)
+    except Exception as e:
+        print(f"Erro ao carregar aviso geral: {e}")
+    finally:
+        if cursor:
+            cursor.close()
+        if conn:
+            conn.close()
+    return dict(aviso_popup=None)
+
+
+@app.route("/admin/aviso", methods=["GET", "POST"])
+def admin_aviso():
+    if "professor_id" not in session:
+        return redirect("/")
+    
+    gestores_escola = ["Bruno Moura", "Bruno Mota", "Raphael Russowsky"]
+    if session.get("professor_nome") not in gestores_escola:
+        return "<h3>❌ Acesso restrito aos gestores.</h3>", 403
+
+    conn = obter_conexao()
+    cursor = conn.cursor()
+    garantir_tabela_aviso(cursor, conn)
+
+    mensagem_feedback = None
+
+    if request.method == "POST":
+        ativo = True if request.form.get("ativo") == "on" else False
+        titulo = request.form.get("titulo", "").strip()
+        imagem_url = request.form.get("imagem_url", "").strip()
+        mensagem = request.form.get("mensagem", "").strip()
+
+        cursor.execute("SELECT id, versao FROM aviso_geral ORDER BY id DESC LIMIT 1;")
+        existente = cursor.fetchone()
+
+        if existente:
+            id_aviso = existente["id"] if isinstance(existente, dict) or hasattr(existente, "get") else existente[0]
+            versao_atual = (existente["versao"] if isinstance(existente, dict) or hasattr(existente, "get") else existente[1]) or 1
+            nova_versao = versao_atual + 1 if ativo else versao_atual
+
+            cursor.execute("""
+                UPDATE aviso_geral 
+                SET ativo = %s, titulo = %s, imagem_url = %s, mensagem = %s, versao = %s
+                WHERE id = %s;
+            """, (ativo, titulo, imagem_url, mensagem, nova_versao, id_aviso))
+        else:
+            cursor.execute("""
+                INSERT INTO aviso_geral (ativo, titulo, imagem_url, mensagem, versao)
+                VALUES (%s, %s, %s, %s, 1);
+            """, (ativo, titulo, imagem_url, mensagem))
+
+        conn.commit()
+        mensagem_feedback = "✅ Configuração do aviso atualizada com sucesso!"
+
+    cursor.execute("SELECT id, ativo, titulo, imagem_url, mensagem FROM aviso_geral ORDER BY id DESC LIMIT 1;")
+    row = cursor.fetchone()
+    aviso_atual = {"ativo": False, "titulo": "", "imagem_url": "", "mensagem": ""}
+    if row:
+        if isinstance(row, dict) or hasattr(row, "get"):
+            aviso_atual = {
+                "ativo": bool(row.get("ativo")),
+                "titulo": row.get("titulo") or "",
+                "imagem_url": row.get("imagem_url") or "",
+                "mensagem": row.get("mensagem") or ""
+            }
+        else:
+            aviso_atual = {
+                "ativo": bool(row[1]),
+                "titulo": row[2] or "",
+                "imagem_url": row[3] or "",
+                "mensagem": row[4] or ""
+            }
+
+    cursor.close()
+    conn.close()
+    return render_template("admin_aviso.html", aviso=aviso_atual, feedback=mensagem_feedback)
 
 if __name__ == "__main__":
     porta = int(os.environ.get("PORT", 5000))
