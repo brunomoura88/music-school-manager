@@ -1,1 +1,60 @@
 
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Configurar Aviso Geral - Estúdio A</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+</head>
+<body class="bg-light">
+<div class="container py-5" style="max-width: 650px;">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h3 class="mb-0">📢 Aviso Geral (Popup)</h3>
+        <a href="/dashboard" class="btn btn-outline-secondary btn-sm">Voltar ao Dashboard</a>
+    </div>
+
+    {% if feedback %}
+    <div class="alert alert-success">{{ feedback }}</div>
+    {% endif %}
+
+    <div class="card shadow-sm">
+        <div class="card-body p-4">
+            <form method="POST">
+                <div class="form-check form-switch mb-4">
+                    <input class="form-check-input" type="checkbox" id="ativo" name="ativo" {% if aviso.ativo %}checked{% endif %} style="transform: scale(1.3); margin-right: 10px;">
+                    <label class="form-check-label fw-bold" for="ativo">Exibir popup para os professores ao entrar</label>
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label fw-bold">Título do Aviso (Opcional)</label>
+                    <input type="text" name="titulo" class="form-control" placeholder="Ex: Reunião Pedagógica / Recesso" value="{{ aviso.titulo }}">
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label fw-bold">Link Direto da Imagem (URL)</label>
+                    <input type="url" name="imagem_url" class="form-control" placeholder="https://..." value="{{ aviso.imagem_url }}">
+                    <div class="form-text">
+                        Dica: Você pode subir a imagem na pasta <code>static/img/</code> do GitHub e usar <code>/static/img/nome-do-arquivo.png</code>, ou colar um link direto (Imgur, Supabase Storage, etc.).
+                    </div>
+                </div>
+
+                <div class="mb-4">
+                    <label class="form-label fw-bold">Mensagem de Texto (Opcional)</label>
+                    <textarea name="mensagem" class="form-control" rows="3" placeholder="Escreva um texto complementar se desejar...">{{ aviso.mensagem }}</textarea>
+                </div>
+
+                {% if aviso.imagem_url %}
+                <div class="mb-4 text-center border rounded p-2 bg-white">
+                    <small class="text-muted d-block mb-2">Pré-visualização da imagem atual:</small>
+                    <img src="{{ aviso.imagem_url }}" alt="Prévia" class="img-fluid rounded" style="max-height: 250px;">
+                </div>
+                {% endif %}
+
+                <button type="submit" class="btn btn-primary w-100 fw-bold">Salvar Configurações</button>
+            </form>
+        </div>
+    </div>
+</div>
+</body>
+</html>
